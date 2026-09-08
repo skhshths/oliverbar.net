@@ -55,6 +55,13 @@
       // without any global admin control.
       const API_BASE = "https://api.oliverbar.net"; // <-- paste your Worker URL here
 
+      // Same convention as the admin page: an optional second custom
+      // domain on the same Worker, used only to recognize when a custom
+      // redirect points at one of our own self-serve pages (so we know
+      // to mint an access token before navigating there). Leave blank
+      // to fall back to API_BASE for this check too.
+      const PAGES_BASE = "https://pages.oliverbar.net";
+
       const ACCESS_KEY = "unlockedAccess";
 
       // slug -> the actual filename to redirect to. The admin page can
@@ -113,6 +120,58 @@
         hiddenInput.value = "";
       }
 
+      // Fire-and-forget usage counter for the admin panel's Experimental
+      // tab. Never blocks navigation on this — if it fails, nobody
+      // notices but a chart later.
+      function reportTriggerUse(tag) {
+        if (!API_BASE) return;
+        fetch(API_BASE + "/api/stats/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: tag })
+        }).catch(function () {});
+      }
+
+      // Custom pages served from pages.oliverbar.net live on a
+      // different origin than this site, so the sessionStorage guard
+      // the built-in hidden pages use (set a flag here, check it there)
+      // can't reach them. Instead, the Worker hands out a short-lived,
+      // single-use access token right before we navigate, and refuses
+      // to serve the page without a valid one — see the /page/ route
+      // in the Worker for the other half of this.
+      function pagesOrigin() {
+        return PAGES_BASE || API_BASE;
+      }
+
+      function slugForPagesDestination(destination) {
+        const base = pagesOrigin();
+        if (!base) return null;
+        const prefix = base + "/page/";
+        if (destination.indexOf(prefix) !== 0) return null;
+        return destination.slice(prefix.length);
+      }
+
+      function goToDestination(destination) {
+        const slug = slugForPagesDestination(destination);
+        if (!slug || !API_BASE) {
+          window.location.href = destination;
+          return;
+        }
+        fetch(API_BASE + "/api/pages/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: slug })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            const sep = destination.indexOf("?") === -1 ? "?" : "&";
+            window.location.href = data.token ? (destination + sep + "t=" + encodeURIComponent(data.token)) : destination;
+          })
+          .catch(function () {
+            window.location.href = destination;
+          });
+      }
+
       function checkTriggers() {
         // Admin is always treated as enabled, no matter what's stored,
         // so renaming/disabling other entries can never lock you out
@@ -124,20 +183,23 @@
           if (!isEnabled) continue;
           if (entry.trigger && buffer.endsWith(entry.trigger)) {
             sessionStorage.setItem(ACCESS_KEY, slug);
+            reportTriggerUse(slug);
             window.location.href = TARGETS[slug];
             return;
           }
         }
 
         // Custom, admin-defined redirects — either a path on this same
-        // site or a full external URL, both just work with a redirect.
+        // site, a self-serve page on pages.oliverbar.net, or a full
+        // external URL; all three just work.
         const customList = config.custom || [];
         for (let i = 0; i < customList.length; i++) {
           const item = customList[i];
           if (!item || item.enabled === false) continue;
           if (item.trigger && buffer.endsWith(item.trigger)) {
             sessionStorage.setItem(ACCESS_KEY, "custom:" + item.id);
-            window.location.href = item.destination;
+            reportTriggerUse("custom:" + item.id);
+            goToDestination(item.destination);
             return;
           }
         }
@@ -174,6 +236,28 @@
       hiddenInput.addEventListener("input", function () {
         hiddenInput.value = "";
       });
+
+      // ---------- Experimental: quiet presence ping ----------
+      // No UI, no visible change — just lets the admin panel's
+      // Experimental tab show a rough "how many tabs have this open
+      // right now" count. Purely for fun.
+      (function presenceLoop() {
+        if (!API_BASE) return;
+        let presenceId = sessionStorage.getItem("presenceId");
+        if (!presenceId) {
+          presenceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ("p" + Math.random().toString(36).slice(2));
+          sessionStorage.setItem("presenceId", presenceId);
+        }
+        function ping() {
+          fetch(API_BASE + "/api/presence/ping", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: presenceId })
+          }).catch(function () {});
+        }
+        ping();
+        setInterval(ping, 20000);
+      })();
 
       refocus();
       loadConfig();

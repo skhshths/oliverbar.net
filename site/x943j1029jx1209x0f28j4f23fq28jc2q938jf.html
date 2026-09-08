@@ -15,6 +15,7 @@
     --muted: #b0aea5;
     --accent: #d97757;
     --accent-hover: #c96442;
+    --danger: #b53333;
   }
 
   html, body {
@@ -58,7 +59,7 @@
     box-shadow: 0 12px 40px rgba(0,0,0,0.5);
   }
   .modal-box p.title { margin: 0 0 16px; font-size: 15px; color: var(--muted); }
-  .modal-box input[type="text"] {
+  .modal-box input[type="text"], .modal-box input[type="password"] {
     width: 100%;
     box-sizing: border-box;
     background-color: var(--near-black);
@@ -68,8 +69,10 @@
     padding: 10px 12px;
     font-size: 14px;
     outline: none;
+    margin-top: 8px;
   }
-  .modal-box input[type="text"]:focus { border-color: var(--accent); }
+  .modal-box input:first-of-type { margin-top: 0; }
+  .modal-box input[type="text"]:focus, .modal-box input[type="password"]:focus { border-color: var(--accent); }
   .modal-box button {
     width: 100%;
     margin-top: 14px;
@@ -83,7 +86,9 @@
     cursor: pointer;
   }
   .modal-box button:hover { background-color: var(--accent-hover); color: var(--text-light); }
-  .modal-box .hint { font-size: 11px; color: var(--muted); margin-top: 10px; }
+  .modal-box .hint { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .modal-box .modal-error { font-size: 12px; color: var(--danger); margin-top: 10px; }
+  .modal-box .modal-error.hidden { display: none; }
 
   /* --- Chat UI --- */
   #chat-wrap {
@@ -140,10 +145,12 @@
 
   #compose {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     padding: 12px;
     border-top: 1px solid var(--border-col);
   }
+  #compose-row { display: flex; gap: 8px; }
   #chat-input {
     flex: 1;
     background-color: var(--near-black);
@@ -166,6 +173,7 @@
     cursor: pointer;
   }
   #send-btn:hover { background-color: var(--accent-hover); color: var(--text-light); }
+  #compose-status { font-size: 11px; color: var(--danger); min-height: 14px; }
 </style>
 </head>
 <body>
@@ -176,8 +184,10 @@
       <div class="modal-box">
         <p class="title">What should we call you?</p>
         <input type="text" id="name-input" maxlength="24" autocomplete="off" autofocus placeholder="Your name">
+        <input type="password" id="pin-input" maxlength="32" autocomplete="off" placeholder="PIN (3+ characters)">
         <button id="name-submit">Join Chat</button>
-        <p class="hint">This is a public chat \u2014 anyone who reaches this page can read and send messages.</p>
+        <p class="modal-error hidden" id="name-error"></p>
+        <p class="hint">The first time you use a name, your PIN claims it — anyone else typing that name later needs the same PIN. This is a public chat; anyone who reaches this page can read messages.</p>
       </div>
     </div>
 
@@ -188,8 +198,11 @@
       </div>
       <div id="messages"></div>
       <div id="compose">
-        <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
-        <button id="send-btn">Send</button>
+        <div id="compose-row">
+          <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
+          <button id="send-btn">Send</button>
+        </div>
+        <div id="compose-status"></div>
       </div>
     </div>
 
@@ -203,6 +216,7 @@
       const HOME_PAGE = "/";
       const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
       const POLL_MS = 3000;
+      const REMEMBER_KEY = "chatIdentity"; // localStorage convenience only, not a security boundary
 
       // ---------- Direct-access guard ----------
       if (sessionStorage.getItem(ACCESS_KEY) !== "chat") {
@@ -213,21 +227,53 @@
 
       const nameModal = document.getElementById('name-modal');
       const nameInput = document.getElementById('name-input');
+      const pinInput = document.getElementById('pin-input');
       const nameSubmit = document.getElementById('name-submit');
+      const nameError = document.getElementById('name-error');
       const chatWrap = document.getElementById('chat-wrap');
       const myNameEl = document.getElementById('my-name');
       const messagesEl = document.getElementById('messages');
       const chatInput = document.getElementById('chat-input');
       const sendBtn = document.getElementById('send-btn');
+      const composeStatus = document.getElementById('compose-status');
 
       let myName = '';
+      let myPin = '';
       let pollTimer = null;
       let lastRenderedCount = 0;
 
+      // Pre-fill from a previous visit on this device, purely for
+      // convenience — this is localStorage on the visitor's own
+      // browser, not a login session.
+      try {
+        const remembered = JSON.parse(localStorage.getItem(REMEMBER_KEY) || 'null');
+        if (remembered && remembered.name) nameInput.value = remembered.name;
+        if (remembered && remembered.pin) pinInput.value = remembered.pin;
+      } catch (e) {}
+
+      function rememberIdentity() {
+        try {
+          localStorage.setItem(REMEMBER_KEY, JSON.stringify({ name: myName, pin: myPin }));
+        } catch (e) {}
+      }
+
+      function showNameError(msg) {
+        nameError.textContent = msg;
+        nameError.classList.remove('hidden');
+      }
+
       function joinChat() {
         const val = nameInput.value.trim().slice(0, 24);
+        const pinVal = pinInput.value;
         if (!val) { nameInput.focus(); return; }
+        if (pinVal.length < 3) {
+          showNameError('PIN needs to be at least 3 characters.');
+          pinInput.focus();
+          return;
+        }
+        nameError.classList.add('hidden');
         myName = val;
+        myPin = pinVal;
         myNameEl.textContent = myName;
         nameModal.classList.add('hidden');
         chatWrap.classList.remove('hidden');
@@ -237,8 +283,10 @@
       }
 
       nameSubmit.addEventListener('click', joinChat);
-      nameInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); joinChat(); }
+      [nameInput, pinInput].forEach(function (el) {
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); joinChat(); }
+        });
       });
 
       function renderMessages(messages) {
@@ -282,19 +330,43 @@
           });
       }
 
+      function returnToNameModal(message) {
+        chatWrap.classList.add('hidden');
+        nameModal.classList.remove('hidden');
+        showNameError(message);
+        pinInput.value = '';
+        pinInput.focus();
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
+
       function sendMessage() {
         const text = chatInput.value.trim();
         if (!text) return;
-        chatInput.value = '';
+        composeStatus.textContent = '';
         fetch(API_BASE + '/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: myName, text: text })
+          body: JSON.stringify({ name: myName, pin: myPin, text: text })
         }).then(function (r) {
-          if (!r.ok) throw new Error('Send failed: ' + r.status);
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) {
+              const err = new Error(data.error || ('Send failed: ' + r.status));
+              err.status = r.status;
+              throw err;
+            }
+            return data;
+          });
+        }).then(function () {
+          chatInput.value = '';
+          rememberIdentity();
           fetchMessages();
         }).catch(function (err) {
           console.error(err);
+          if (err.status === 401) {
+            returnToNameModal(err.message || 'That name is already claimed — wrong PIN.');
+          } else {
+            composeStatus.textContent = err.message || 'Could not send — try again.';
+          }
         });
       }
 
@@ -304,8 +376,8 @@
       });
 
       // No global "Enter goes home" on this page — Enter is meaningful
-      // inside both the name field and the chat input, and those are
-      // the only two things on this page.
+      // inside the name field, PIN field, and chat input, which are the
+      // only things on this page.
 
       setTimeout(function () { nameInput.focus(); }, 30);
     })();
