@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.</title>
+
+<link
+  href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+  rel="stylesheet"
+>
+
+<style>
+  :root {
+    --near-black: #141413;
+    --panel-bg: #262624;
+    --panel-bg-2: #30302e;
+    --border-col: #45443f;
+    --text-light: #faf9f5;
+    --muted: #b0aea5;
+    --accent: #d97757;
+    --accent-hover: #c96442;
+    --danger: #b53333;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--near-black);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-light);
+  }
+
+  #canvas {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    background-color: var(--near-black);
+    overflow: hidden;
+  }
+
+  /* --- Top-right button bar (flag + refresh), always visible --- */
+  #top-right-bar {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    gap: 8px;
+  }
+
+  #top-right-bar button {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border-col);
+    background-color: var(--panel-bg);
+    color: var(--accent);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s ease, background-color 0.15s ease, transform 0.4s ease;
+  }
+  #top-right-bar button:hover {
+    opacity: 1;
+    background-color: var(--panel-bg-2);
+  }
+  body.edit-mode #flag-btn {
+    opacity: 1;
+    border-color: var(--accent);
+  }
+  #refresh-btn.spinning {
+    transform: rotate(360deg);
+  }
+
+  /* --- Modal --- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  .modal-overlay.hidden { display: none; }
+
+  .modal-box {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-col);
+    border-radius: 14px;
+    padding: 28px 28px 20px;
+    width: 300px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .modal-box.shake { animation: shake 0.35s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .modal-box p.title {
+    margin: 0 0 16px;
+    font-size: 15px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .modal-box input[type="password"] {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+  }
+  .modal-box input[type="password"]:focus { border-color: var(--accent); }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  .btn-accent, .btn-ghost {
+    flex: 1;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .btn-accent {
+    background-color: var(--accent);
+    color: var(--near-black);
+    font-weight: 600;
+  }
+  .btn-accent:hover { background-color: var(--accent-hover); color: var(--text-light); }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-col);
+  }
+  .btn-ghost:hover { color: var(--text-light); border-color: var(--muted); }
+
+  .error-text { color: var(--danger); font-size: 13px; margin: 12px 0 0; }
+  .error-text.hidden { display: none; }
+
+  /* --- Toolbar (edit mode only) --- */
+  #toolbar {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-col);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  #toolbar.hidden { display: none; }
+
+  #toolbar button {
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 7px;
+    padding: 7px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #toolbar button#add-box-btn {
+    background-color: var(--accent);
+    color: var(--near-black);
+    font-weight: 600;
+    border: none;
+  }
+  #toolbar button#add-box-btn:hover { background-color: var(--accent-hover); color: var(--text-light); }
+  #toolbar button#lock-btn:hover { border-color: var(--accent); }
+
+  #save-indicator { font-size: 12px; color: var(--muted); min-width: 90px; }
+
+  /* --- Property panel --- */
+  #property-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 300px;
+    background-color: var(--panel-bg);
+    border-left: 1px solid var(--border-col);
+    z-index: 999;
+    padding: 66px 18px 18px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  #property-panel.hidden { display: none; }
+
+  #property-panel h6 {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 18px 0 8px;
+  }
+  #property-panel h6:first-of-type { margin-top: 0; }
+
+  #box-text-input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    resize: vertical;
+    min-height: 44px;
+  }
+
+  #box-class-label {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--accent);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  #css-hint {
+    font-size: 10.5px;
+    color: var(--muted);
+    margin: 4px 0 8px;
+    line-height: 1.4;
+  }
+
+  #box-css-input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    resize: vertical;
+    flex: 1;
+    min-height: 220px;
+    line-height: 1.5;
+    tab-size: 2;
+  }
+  #box-css-input:focus { border-color: var(--accent); outline: none; }
+
+  #delete-box-btn {
+    width: 100%;
+    margin-top: 16px;
+    background-color: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    border-radius: 7px;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #delete-box-btn:hover { background-color: var(--danger); color: var(--text-light); }
+
+  /* --- Boxes on the canvas --- */
+  /* Structural rules only. Everything visual (background, radius,
+     padding, shadows, gradients, etc.) comes from each box's own
+     <style> tag, generated from the CSS the user types. */
+  .site-box {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: hidden;
+    user-select: none;
+    color: var(--text-light);
+    font-size: 14px;
+  }
+  body.edit-mode .site-box { cursor: grab; }
+  body.edit-mode .site-box:active { cursor: grabbing; }
+  body.edit-mode .site-box.selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .site-box[contenteditable="true"] {
+    cursor: text;
+    outline: 2px dashed var(--accent);
+  }
+
+  .resize-handle {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background-color: var(--accent);
+    border: 2px solid var(--near-black);
+    cursor: nwse-resize;
+    display: none;
+  }
+  body.edit-mode .site-box.selected .resize-handle { display: block; }
+</style>
+</head>
+<body>
+
+  <div id="canvas"></div>
+
+  <div id="top-right-bar">
+    <button id="refresh-btn" title="Refresh: load the latest saved version">&#128260;</button>
+    <button id="flag-btn" title="Edit this page">&#128681;</button>
+  </div>
+
+  <div id="password-modal" class="modal-overlay hidden">
+    <div class="modal-box" id="modal-box">
+      <p class="title">Enter password to edit</p>
+      <input type="password" id="password-input" autocomplete="off" autofocus>
+      <p class="error-text hidden" id="password-error">Incorrect password.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="password-cancel">Cancel</button>
+        <button class="btn-accent" id="password-submit">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toolbar" class="hidden">
+    <button id="add-box-btn">+ Add Box</button>
+    <button id="lock-btn">Lock</button>
+    <span id="save-indicator"></span>
+  </div>
+
+  <div id="property-panel" class="hidden">
+    <h6>Text</h6>
+    <textarea id="box-text-input" placeholder="Box text..."></textarea>
+
+    <h6>This box's selector</h6>
+    <input type="text" id="box-class-label" readonly>
+
+    <h6>Custom CSS</h6>
+    <p id="css-hint">Write a real CSS rule, including the selector above. Anything valid CSS supports — gradients, box-shadow, hover states, transitions, etc.</p>
+    <textarea id="box-css-input" spellcheck="false"></textarea>
+
+    <button id="delete-box-btn">Delete Box</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    (function () {
+      "use strict";
+
+      // ================= Config =================
+      const ACCESS_KEY = "unlockedAccess";
+      const HOME_PAGE = "/";
+      const EDIT_PASSWORD = "asdfasdfasdf";
+      const STORAGE_KEY = "x92_site_layout_v2";
+
+      // Paste your deployed Worker URL here (see the x92-layout-api
+      // README). Leave it blank ("") to run in local-only mode, where
+      // layouts are saved to this browser's localStorage instead of
+      // being shared with every visitor.
+      const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
+
+      // ---------- Direct-access guard ----------
+      // The home page now serves three destinations from one trigger
+      // system (admin / interactive / portfolio), each stamping its
+      // own value into this flag — so reaching this page requires
+      // having typed *this page's* trigger word specifically.
+      if (sessionStorage.getItem(ACCESS_KEY) !== "interactive") {
+        window.location.replace(HOME_PAGE);
+        return;
+      }
+      sessionStorage.removeItem(ACCESS_KEY);
+
+      // ---------- Elements ----------
+      const canvas = document.getElementById('canvas');
+      const flagBtn = document.getElementById('flag-btn');
+      const refreshBtn = document.getElementById('refresh-btn');
+      const modal = document.getElementById('password-modal');
+      const modalBox = document.getElementById('modal-box');
+      const pwInput = document.getElementById('password-input');
+      const pwError = document.getElementById('password-error');
+      const pwSubmit = document.getElementById('password-submit');
+      const pwCancel = document.getElementById('password-cancel');
+      const toolbar = document.getElementById('toolbar');
+      const addBoxBtn = document.getElementById('add-box-btn');
+      const lockBtn = document.getElementById('lock-btn');
+      const saveIndicator = document.getElementById('save-indicator');
+      const panel = document.getElementById('property-panel');
+
+      const textInput = document.getElementById('box-text-input');
+      const classLabel = document.getElementById('box-class-label');
+      const cssInput = document.getElementById('box-css-input');
+      const deleteBtn = document.getElementById('delete-box-btn');
+
+      classLabel.addEventListener('focus', function () { classLabel.select(); });
+
+      // ---------- State ----------
+      let boxes = [];
+      let editMode = false;
+      let selectedId = null;
+      let nextZ = 1;
+      let saveTimer = null;
+      let currentEditKey = null; // set once the password is entered correctly
+
+      // ---------- Persistence helpers ----------
+      function loadLocalBoxes() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function normalizeBox(box) {
+        if (!box.cls) box.cls = 'box-' + Math.random().toString(36).slice(2, 9);
+        if (typeof box.customCSS !== 'string') {
+          box.customCSS = '.' + box.cls + ' {\n  background: #30302e;\n  border: 1px solid #45443f;\n  border-radius: 10px;\n  padding: 14px;\n}';
+        }
+        if (typeof box.x !== 'number') box.x = 80;
+        if (typeof box.y !== 'number') box.y = 80;
+        if (typeof box.w !== 'number') box.w = 220;
+        if (typeof box.h !== 'number') box.h = 130;
+        if (typeof box.z !== 'number') box.z = 1;
+        if (typeof box.text !== 'string') box.text = '';
+        if (!box.id) box.id = 'box_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        return box;
+      }
+
+      function fetchLayoutFromServer() {
+        if (!API_BASE) {
+          boxes = loadLocalBoxes().map(normalizeBox);
+          finishLoad();
+          return Promise.resolve();
+        }
+        return fetch(API_BASE + '/api/layout')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            boxes = Array.isArray(data) ? data.map(normalizeBox) : [];
+            finishLoad();
+          })
+          .catch(function (err) {
+            console.error('Failed to load layout from server, falling back to local copy:', err);
+            boxes = loadLocalBoxes().map(normalizeBox);
+            finishLoad();
+          });
+      }
+
+      function finishLoad() {
+        nextZ = boxes.reduce(function (max, b) { return Math.max(max, b.z || 0); }, 0);
+        hidePanel();
+        renderAll();
+      }
+
+      function persistLayout() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(boxes));
+
+        if (!API_BASE) {
+          markSaved();
+          return;
+        }
+
+        fetch(API_BASE + '/api/layout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Edit-Key': currentEditKey || ''
+          },
+          body: JSON.stringify(boxes)
+        }).then(function (r) {
+          if (!r.ok) throw new Error('Save failed: ' + r.status);
+          markSaved();
+        }).catch(function (err) {
+          console.error(err);
+          saveIndicator.textContent = 'Save failed';
+        });
+      }
+
+      function markSaved() {
+        saveIndicator.textContent = 'Saved';
+        setTimeout(function () { saveIndicator.textContent = ''; }, 1200);
+      }
+
+      function scheduleSave() {
+        saveIndicator.textContent = 'Saving...';
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(persistLayout, 400);
+      }
+
+      function makeDefaultBox() {
+        nextZ += 1;
+        const cls = 'box-' + Math.random().toString(36).slice(2, 9);
+        return {
+          id: 'box_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          cls: cls,
+          x: 80,
+          y: 80,
+          w: 220,
+          h: 130,
+          z: nextZ,
+          text: 'New Box',
+          customCSS: '.' + cls + ' {\n  background: #30302e;\n  border: 1px solid #45443f;\n  border-radius: 10px;\n  padding: 14px;\n}'
+        };
+      }
+
+      // ---------- Per-box real CSS ----------
+      function updateBoxCSS(box) {
+        let styleEl = document.getElementById('style-' + box.cls);
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = 'style-' + box.cls;
+          document.head.appendChild(styleEl);
+        }
+        styleEl.textContent = box.customCSS;
+      }
+
+      function removeBoxCSS(box) {
+        const styleEl = document.getElementById('style-' + box.cls);
+        if (styleEl) styleEl.remove();
+      }
+
+      // ---------- Rendering ----------
+      function renderAll() {
+        canvas.innerHTML = '';
+        document.querySelectorAll('style[id^="style-box-"]').forEach(function (s) { s.remove(); });
+        boxes.forEach(function (box) {
+          renderBox(box);
+          updateBoxCSS(box);
+        });
+      }
+
+      function renderBox(box) {
+        const el = document.createElement('div');
+        el.className = 'site-box ' + box.cls;
+        el.dataset.id = box.id;
+        applyBoxPosition(el, box);
+        el.textContent = box.text;
+
+        const handle = document.createElement('div');
+        handle.className = 'resize-handle';
+        el.appendChild(handle);
+
+        canvas.appendChild(el);
+
+        el.addEventListener('pointerdown', function (e) {
+          if (!editMode) return;
+          if (e.target === handle) return;
+          if (el.getAttribute('contenteditable') === 'true') return;
+          startDrag(e, box, el);
+        });
+
+        el.addEventListener('click', function (e) {
+          if (!editMode) return;
+          e.stopPropagation();
+          selectBox(box.id);
+        });
+
+        el.addEventListener('dblclick', function (e) {
+          if (!editMode) return;
+          e.stopPropagation();
+          enterTextEdit(box, el);
+        });
+
+        handle.addEventListener('pointerdown', function (e) {
+          if (!editMode) return;
+          e.stopPropagation();
+          startResize(e, box, el);
+        });
+
+        if (box.id === selectedId) el.classList.add('selected');
+      }
+
+      // Only structural placement lives here — everything visual comes
+      // from the box's own CSS rule (see updateBoxCSS).
+      function applyBoxPosition(el, box) {
+        el.style.left = box.x + 'px';
+        el.style.top = box.y + 'px';
+        el.style.width = box.w + 'px';
+        el.style.height = box.h + 'px';
+        el.style.zIndex = box.z;
+      }
+
+      function findBox(id) { return boxes.find(function (b) { return b.id === id; }); }
+      function findEl(id) { return canvas.querySelector('[data-id="' + id + '"]'); }
+
+      // ---------- Drag ----------
+      function startDrag(e, box, el) {
+        e.preventDefault();
+        bringToFront(box, el);
+        selectBox(box.id);
+
+        const startX = e.clientX, startY = e.clientY;
+        const originX = box.x, originY = box.y;
+
+        function onMove(ev) {
+          box.x = Math.max(0, originX + (ev.clientX - startX));
+          box.y = Math.max(0, originY + (ev.clientY - startY));
+          el.style.left = box.x + 'px';
+          el.style.top = box.y + 'px';
+        }
+        function onUp() {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          scheduleSave();
+        }
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+      }
+
+      // ---------- Resize ----------
+      function startResize(e, box, el) {
+        e.preventDefault();
+        bringToFront(box, el);
+        selectBox(box.id);
+
+        const startX = e.clientX, startY = e.clientY;
+        const originW = box.w, originH = box.h;
+
+        function onMove(ev) {
+          box.w = Math.max(40, originW + (ev.clientX - startX));
+          box.h = Math.max(30, originH + (ev.clientY - startY));
+          el.style.width = box.w + 'px';
+          el.style.height = box.h + 'px';
+        }
+        function onUp() {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          scheduleSave();
+        }
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+      }
+
+      function bringToFront(box, el) {
+        nextZ += 1;
+        box.z = nextZ;
+        el.style.zIndex = box.z;
+      }
+
+      // ---------- Text editing ----------
+      function enterTextEdit(box, el) {
+        el.setAttribute('contenteditable', 'true');
+        el.focus();
+        document.execCommand('selectAll', false, null);
+
+        function onBlur() {
+          el.removeAttribute('contenteditable');
+          box.text = el.textContent;
+          if (selectedId === box.id) textInput.value = box.text;
+          el.removeEventListener('blur', onBlur);
+          scheduleSave();
+        }
+        el.addEventListener('blur', onBlur);
+      }
+
+      // ---------- Selection / property panel ----------
+      function selectBox(id) {
+        selectedId = id;
+        document.querySelectorAll('.site-box').forEach(function (n) {
+          n.classList.toggle('selected', n.dataset.id === id);
+        });
+        const box = findBox(id);
+        if (!box) { hidePanel(); return; }
+        panel.classList.remove('hidden');
+        textInput.value = box.text;
+        classLabel.value = '.' + box.cls;
+        cssInput.value = box.customCSS;
+      }
+
+      function hidePanel() {
+        selectedId = null;
+        panel.classList.add('hidden');
+        document.querySelectorAll('.site-box').forEach(function (n) { n.classList.remove('selected'); });
+      }
+
+      function updateSelectedFromPanel() {
+        const box = findBox(selectedId);
+        if (!box) return;
+        const el = findEl(selectedId);
+
+        box.text = textInput.value;
+        box.customCSS = cssInput.value;
+
+        if (el && el.getAttribute('contenteditable') !== 'true') {
+          el.textContent = box.text;
+        }
+        updateBoxCSS(box);
+        scheduleSave();
+      }
+
+      textInput.addEventListener('input', updateSelectedFromPanel);
+      cssInput.addEventListener('input', updateSelectedFromPanel);
+
+      deleteBtn.addEventListener('click', function () {
+        if (!selectedId) return;
+        const box = findBox(selectedId);
+        if (box) removeBoxCSS(box);
+        boxes = boxes.filter(function (b) { return b.id !== selectedId; });
+        hidePanel();
+        renderAll();
+        scheduleSave();
+      });
+
+      canvas.addEventListener('click', function (e) {
+        if (e.target === canvas) hidePanel();
+      });
+
+      // ---------- Toolbar ----------
+      addBoxBtn.addEventListener('click', function () {
+        const box = makeDefaultBox();
+        boxes.push(box);
+        renderAll();
+        selectBox(box.id);
+        scheduleSave();
+      });
+
+      lockBtn.addEventListener('click', function () { setEditMode(false); });
+
+      function setEditMode(on) {
+        editMode = on;
+        document.body.classList.toggle('edit-mode', on);
+        toolbar.classList.toggle('hidden', !on);
+        if (!on) hidePanel();
+      }
+
+      // ---------- Refresh (visible + usable by anyone) ----------
+      refreshBtn.addEventListener('click', function () {
+        refreshBtn.classList.add('spinning');
+        fetchLayoutFromServer().finally(function () {
+          setTimeout(function () { refreshBtn.classList.remove('spinning'); }, 400);
+        });
+      });
+
+      // ---------- Password modal ----------
+      function openModal() {
+        modal.classList.remove('hidden');
+        pwError.classList.add('hidden');
+        pwInput.value = '';
+        setTimeout(function () { pwInput.focus(); }, 30);
+      }
+      function closeModal() { modal.classList.add('hidden'); }
+
+      function attemptUnlock() {
+        if (pwInput.value === EDIT_PASSWORD) {
+          currentEditKey = pwInput.value;
+          closeModal();
+          setEditMode(true);
+        } else {
+          pwError.classList.remove('hidden');
+          modalBox.classList.remove('shake');
+          void modalBox.offsetWidth;
+          modalBox.classList.add('shake');
+          pwInput.value = '';
+          pwInput.focus();
+        }
+      }
+
+      flagBtn.addEventListener('click', function () {
+        if (editMode) { setEditMode(false); } else { openModal(); }
+      });
+      pwSubmit.addEventListener('click', attemptUnlock);
+      pwCancel.addEventListener('click', closeModal);
+      pwInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); attemptUnlock(); }
+        else if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+      });
+
+      // ---------- Global Enter-to-home ----------
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        if (!modal.classList.contains('hidden')) return;
+        if (editMode) return;
+        const tag = document.activeElement ? document.activeElement.tagName : '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (document.activeElement && document.activeElement.getAttribute('contenteditable') === 'true') return;
+        window.location.href = HOME_PAGE;
+      });
+
+      // ---------- Init ----------
+      fetchLayoutFromServer();
+    })();
+  </script>
+
+</body>
+</html>

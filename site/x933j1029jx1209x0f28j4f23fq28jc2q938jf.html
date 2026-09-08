@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>.</title>
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000000;
+    }
+  </style>
+</head>
+<body>
+
+  <script>
+    (function () {
+      "use strict";
+      const ACCESS_KEY = "unlockedAccess";
+      const HOME_PAGE = "/";
+
+      // Only render if reached via index.html's "portfolio" trigger.
+      if (sessionStorage.getItem(ACCESS_KEY) !== "portfolio") {
+        window.location.replace(HOME_PAGE);
+      } else {
+        sessionStorage.removeItem(ACCESS_KEY);
+      }
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          window.location.href = HOME_PAGE;
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>

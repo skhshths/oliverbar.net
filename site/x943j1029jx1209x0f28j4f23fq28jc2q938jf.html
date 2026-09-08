@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.</title>
+
+<style>
+  :root {
+    --near-black: #141413;
+    --panel-bg: #262624;
+    --panel-bg-2: #30302e;
+    --border-col: #45443f;
+    --text-light: #faf9f5;
+    --muted: #b0aea5;
+    --accent: #d97757;
+    --accent-hover: #c96442;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--near-black);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-light);
+  }
+
+  #app {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* --- Name prompt --- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  .modal-overlay.hidden { display: none; }
+
+  .modal-box {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-col);
+    border-radius: 14px;
+    padding: 28px;
+    width: 300px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .modal-box p.title { margin: 0 0 16px; font-size: 15px; color: var(--muted); }
+  .modal-box input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+  }
+  .modal-box input[type="text"]:focus { border-color: var(--accent); }
+  .modal-box button {
+    width: 100%;
+    margin-top: 14px;
+    background-color: var(--accent);
+    color: var(--near-black);
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .modal-box button:hover { background-color: var(--accent-hover); color: var(--text-light); }
+  .modal-box .hint { font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+  /* --- Chat UI --- */
+  #chat-wrap {
+    width: 480px;
+    max-width: 94vw;
+    height: 80vh;
+    max-height: 640px;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-col);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #chat-wrap.hidden { display: none; }
+
+  #chat-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-col);
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #chat-header .name-tag { color: var(--accent); font-weight: 600; }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .msg {
+    max-width: 80%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background-color: var(--panel-bg-2);
+    font-size: 13.5px;
+    line-height: 1.4;
+    word-wrap: break-word;
+  }
+  .msg .msg-name {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .msg.own { align-self: flex-end; background-color: var(--accent); color: var(--near-black); }
+  .msg.own .msg-name { color: var(--near-black); opacity: 0.7; }
+
+  #compose {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--border-col);
+  }
+  #chat-input {
+    flex: 1;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    outline: none;
+  }
+  #chat-input:focus { border-color: var(--accent); }
+  #send-btn {
+    background-color: var(--accent);
+    color: var(--near-black);
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 0 18px;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  #send-btn:hover { background-color: var(--accent-hover); color: var(--text-light); }
+</style>
+</head>
+<body>
+
+  <div id="app">
+
+    <div id="name-modal" class="modal-overlay">
+      <div class="modal-box">
+        <p class="title">What should we call you?</p>
+        <input type="text" id="name-input" maxlength="24" autocomplete="off" autofocus placeholder="Your name">
+        <button id="name-submit">Join Chat</button>
+        <p class="hint">This is a public chat \u2014 anyone who reaches this page can read and send messages.</p>
+      </div>
+    </div>
+
+    <div id="chat-wrap" class="hidden">
+      <div id="chat-header">
+        <span>Global Chat</span>
+        <span>chatting as <span class="name-tag" id="my-name"></span></span>
+      </div>
+      <div id="messages"></div>
+      <div id="compose">
+        <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
+        <button id="send-btn">Send</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const ACCESS_KEY = "unlockedAccess";
+      const HOME_PAGE = "/";
+      const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
+      const POLL_MS = 3000;
+
+      // ---------- Direct-access guard ----------
+      if (sessionStorage.getItem(ACCESS_KEY) !== "chat") {
+        window.location.replace(HOME_PAGE);
+        return;
+      }
+      sessionStorage.removeItem(ACCESS_KEY);
+
+      const nameModal = document.getElementById('name-modal');
+      const nameInput = document.getElementById('name-input');
+      const nameSubmit = document.getElementById('name-submit');
+      const chatWrap = document.getElementById('chat-wrap');
+      const myNameEl = document.getElementById('my-name');
+      const messagesEl = document.getElementById('messages');
+      const chatInput = document.getElementById('chat-input');
+      const sendBtn = document.getElementById('send-btn');
+
+      let myName = '';
+      let pollTimer = null;
+      let lastRenderedCount = 0;
+
+      function joinChat() {
+        const val = nameInput.value.trim().slice(0, 24);
+        if (!val) { nameInput.focus(); return; }
+        myName = val;
+        myNameEl.textContent = myName;
+        nameModal.classList.add('hidden');
+        chatWrap.classList.remove('hidden');
+        chatInput.focus();
+        fetchMessages();
+        pollTimer = setInterval(fetchMessages, POLL_MS);
+      }
+
+      nameSubmit.addEventListener('click', joinChat);
+      nameInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); joinChat(); }
+      });
+
+      function renderMessages(messages) {
+        // Only redraw if the count changed, so scroll position isn't
+        // fought over on every poll tick.
+        if (messages.length === lastRenderedCount) return;
+        lastRenderedCount = messages.length;
+
+        const wasAtBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 40;
+
+        messagesEl.innerHTML = '';
+        messages.forEach(function (m) {
+          const bubble = document.createElement('div');
+          bubble.className = 'msg' + (m.name === myName ? ' own' : '');
+
+          const nameEl = document.createElement('div');
+          nameEl.className = 'msg-name';
+          nameEl.textContent = m.name; // textContent only — never render chat content as HTML
+
+          const textEl = document.createElement('div');
+          textEl.textContent = m.text; // same here — this is untrusted, open input
+
+          bubble.appendChild(nameEl);
+          bubble.appendChild(textEl);
+          messagesEl.appendChild(bubble);
+        });
+
+        if (wasAtBottom) {
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      }
+
+      function fetchMessages() {
+        fetch(API_BASE + '/api/chat')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            renderMessages(Array.isArray(data) ? data : []);
+          })
+          .catch(function (err) {
+            console.error('Failed to load chat messages:', err);
+          });
+      }
+
+      function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        chatInput.value = '';
+        fetch(API_BASE + '/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: myName, text: text })
+        }).then(function (r) {
+          if (!r.ok) throw new Error('Send failed: ' + r.status);
+          fetchMessages();
+        }).catch(function (err) {
+          console.error(err);
+        });
+      }
+
+      sendBtn.addEventListener('click', sendMessage);
+      chatInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); sendMessage(); }
+      });
+
+      // No global "Enter goes home" on this page — Enter is meaningful
+      // inside both the name field and the chat input, and those are
+      // the only two things on this page.
+
+      setTimeout(function () { nameInput.focus(); }, 30);
+    })();
+  </script>
+
+</body>
+</html>

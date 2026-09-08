@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.</title>
+
+<style>
+  :root {
+    --near-black: #141413;
+    --panel-bg: #262624;
+    --panel-bg-2: #30302e;
+    --border-col: #45443f;
+    --text-light: #faf9f5;
+    --muted: #b0aea5;
+    --accent: #d97757;
+    --accent-hover: #c96442;
+    --danger: #b53333;
+    --good: #7a9c6e;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--near-black);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-light);
+  }
+
+  #app {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* --- Password modal (same pattern as the interactive page) --- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  .modal-overlay.hidden { display: none; }
+
+  .modal-box {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-col);
+    border-radius: 14px;
+    padding: 28px 28px 20px;
+    width: 300px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .modal-box.shake { animation: shake 0.35s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .modal-box p.title {
+    margin: 0 0 16px;
+    font-size: 15px;
+    color: var(--muted);
+  }
+
+  .modal-box input[type="password"] {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+  }
+  .modal-box input[type="password"]:focus { border-color: var(--accent); }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  .btn-accent, .btn-ghost {
+    flex: 1;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn-accent { background-color: var(--accent); color: var(--near-black); font-weight: 600; }
+  .btn-accent:hover { background-color: var(--accent-hover); color: var(--text-light); }
+  .btn-ghost { background-color: transparent; color: var(--muted); border: 1px solid var(--border-col); }
+  .btn-ghost:hover { color: var(--text-light); border-color: var(--muted); }
+
+  .error-text { color: var(--danger); font-size: 13px; margin: 12px 0 0; }
+  .error-text.hidden { display: none; }
+
+  /* --- Admin panel --- */
+  #admin-panel {
+    width: 480px;
+    max-width: 92vw;
+    max-height: 88vh;
+    overflow-y: auto;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-col);
+    border-radius: 14px;
+    padding: 28px;
+    box-sizing: border-box;
+  }
+  #admin-panel.hidden { display: none; }
+
+  #admin-panel h1 {
+    font-size: 18px;
+    margin: 0 0 4px;
+    color: var(--text-light);
+  }
+  #admin-panel .subtitle {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 0 0 22px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border-col);
+  }
+  .row:first-of-type { border-top: none; }
+
+  .row .label {
+    width: 90px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--text-light);
+  }
+
+  .row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .row input[type="text"]:focus { border-color: var(--accent); outline: none; }
+  .row input[type="text"]:disabled {
+    color: var(--muted);
+    background-color: var(--panel-bg-2);
+    cursor: not-allowed;
+    border-color: var(--border-col);
+  }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative;
+    width: 42px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .toggle .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: var(--border-col);
+    border-radius: 999px;
+    transition: background-color 0.15s ease;
+  }
+  .toggle .slider::before {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    top: 3px;
+    background-color: var(--text-light);
+    border-radius: 50%;
+    transition: transform 0.15s ease;
+  }
+  .toggle input:checked + .slider { background-color: var(--good); }
+  .toggle input:checked + .slider::before { transform: translateX(18px); }
+  /* Locked (disabled) toggle reads as clearly inert, not just "off" */
+  .toggle input:disabled + .slider {
+    background-color: var(--border-col) !important;
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .toggle input:disabled + .slider::before {
+    background-color: var(--muted);
+  }
+
+  #admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 22px;
+  }
+  #save-config-btn {
+    background-color: var(--accent);
+    color: var(--near-black);
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #save-config-btn:hover { background-color: var(--accent-hover); color: var(--text-light); }
+  #admin-status { font-size: 12.5px; color: var(--muted); }
+
+  #config-note {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 18px;
+  }
+
+  /* --- Custom redirects section --- */
+  #custom-section h2 {
+    font-size: 13px;
+    color: var(--text-light);
+    margin: 24px 0 4px;
+    border-top: 1px solid var(--border-col);
+    padding-top: 20px;
+  }
+  #custom-section .subtitle {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+
+  .custom-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-col);
+  }
+  .custom-row input[type="text"] {
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 12.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .custom-row .trigger-input { width: 110px; flex-shrink: 0; }
+  .custom-row .dest-input { flex: 1; min-width: 0; }
+  .custom-row input:focus { border-color: var(--accent); outline: none; }
+
+  .custom-row .remove-btn {
+    background: none;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .custom-row .remove-btn:hover { background-color: var(--danger); color: var(--text-light); }
+
+  #add-custom-btn {
+    margin-top: 12px;
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #add-custom-btn:hover { border-color: var(--accent); }
+
+  /* --- Custom pages section (self-serve HTML, no Pages deploy needed) --- */
+  #pages-section h2 {
+    font-size: 13px;
+    color: var(--text-light);
+    margin: 24px 0 4px;
+    border-top: 1px solid var(--border-col);
+    padding-top: 20px;
+  }
+  #pages-section .subtitle {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 0 0 14px;
+    line-height: 1.5;
+  }
+
+  .page-entry {
+    border-top: 1px solid var(--border-col);
+    padding: 12px 0;
+  }
+  .page-entry .page-entry-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .page-entry input[type="text"].slug-input {
+    width: 140px;
+    flex-shrink: 0;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 12.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .page-entry input:focus { border-color: var(--accent); outline: none; }
+  .page-entry .page-url {
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .page-entry .copy-btn {
+    background-color: var(--panel-bg-2);
+    color: var(--muted);
+    border: 1px solid var(--border-col);
+    border-radius: 6px;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .page-entry .copy-btn:hover { border-color: var(--accent); color: var(--text-light); }
+  .page-entry .copy-btn.copied { color: var(--good); border-color: var(--good); }
+  .page-entry textarea.html-input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 7px;
+    padding: 8px;
+    font-size: 11.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    min-height: 90px;
+    resize: vertical;
+  }
+  .page-entry .page-entry-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  #add-page-btn {
+    margin-top: 12px;
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #add-page-btn:hover { border-color: var(--accent); }
+
+  /* --- Chat moderation section --- */
+  #chat-section h2 {
+    font-size: 13px;
+    color: var(--text-light);
+    margin: 24px 0 4px;
+    border-top: 1px solid var(--border-col);
+    padding-top: 20px;
+  }
+  #chat-section .subtitle {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 0 0 14px;
+    line-height: 1.5;
+  }
+  #clear-chat-btn {
+    background-color: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #clear-chat-btn:hover { background-color: var(--danger); color: var(--text-light); }
+  #clear-chat-status { font-size: 12px; color: var(--muted); margin-left: 10px; }
+</style>
+</head>
+<body>
+
+  <div id="app">
+
+    <div id="password-modal" class="modal-overlay">
+      <div class="modal-box" id="modal-box">
+        <p class="title">Enter admin password</p>
+        <input type="password" id="password-input" autocomplete="off" autofocus>
+        <p class="error-text hidden" id="password-error">Incorrect password.</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="password-cancel">Back to Home</button>
+          <button class="btn-accent" id="password-submit">Unlock</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-panel" class="hidden">
+      <h1>Site Access Settings</h1>
+      <p class="subtitle">These trigger words and on/off switches apply for every visitor.</p>
+
+      <div id="rows-container"></div>
+
+      <div id="custom-section">
+        <h2>Custom Redirects</h2>
+        <p class="subtitle">Add your own trigger words that jump to any path on this site (e.g. <code>/oliverbar.html</code>) or any full URL (e.g. <code>https://oliverbar.net/</code>).</p>
+        <div id="custom-rows-container"></div>
+        <button id="add-custom-btn">+ Add Custom Redirect</button>
+      </div>
+
+      <div id="pages-section">
+        <h2>Custom Pages</h2>
+        <p class="subtitle">Paste raw HTML here and it's hosted directly by your Worker \u2014 no need to touch the Cloudflare Pages dashboard. Nested paths work too (e.g. slug <code>test/about-us</code>). Copy the generated URL into a Custom Redirect above to reach it with a trigger word.</p>
+        <div id="pages-container"></div>
+        <button id="add-page-btn">+ Add Custom Page</button>
+      </div>
+
+      <div id="chat-section">
+        <h2>Chat Moderation</h2>
+        <p class="subtitle">Wipes every message currently stored \u2014 visitors on the chat page will see an empty room next time it refreshes. This can't be undone.</p>
+        <button id="clear-chat-btn">Clear All Chat Messages</button>
+        <span id="clear-chat-status"></span>
+      </div>
+
+      <div id="admin-actions">
+        <button id="save-config-btn">Save Changes</button>
+        <span id="admin-status"></span>
+      </div>
+
+      <p id="config-note"></p>
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      // ================= Config =================
+      const ACCESS_KEY = "unlockedAccess";
+      const HOME_PAGE = "/";
+      const ADMIN_PASSWORD = "asdfasdfasdf"; // same password as the interactive editor, for simplicity
+
+      // Paste your deployed Worker URL here (same one used elsewhere).
+      const API_BASE = "https://api.oliverbar.net"; // <-- paste your Worker URL here
+
+      // Optional: if you've attached a second custom domain to the same
+      // Worker just for serving custom pages (e.g. pages.oliverbar.net),
+      // put it here so generated/copied links use that instead of
+      // API_BASE. Leave blank to just use API_BASE for page links too —
+      // either domain works identically since it's the same Worker.
+      const PAGES_BASE = "https://pages.oliverbar.net";
+
+      function pageUrlFor(slug) {
+        const base = PAGES_BASE || API_BASE;
+        if (!base) return '(set API_BASE or PAGES_BASE to get a URL)';
+        return base + '/page/' + (slug || '');
+      }
+
+      const PAGE_ORDER = ["admin", "interactive", "portfolio", "chat"];
+      const PAGE_LABELS = { admin: "Admin", interactive: "Interactive", portfolio: "Portfolio", chat: "Chat" };
+      const ADMIN_FIXED_TRIGGER = "ADMIN"; // matches the Worker's hardcoded value; display-only here
+
+      // ---------- Direct-access guard ----------
+      if (sessionStorage.getItem(ACCESS_KEY) !== "admin") {
+        window.location.replace(HOME_PAGE);
+        return;
+      }
+      sessionStorage.removeItem(ACCESS_KEY);
+
+      // ---------- Elements ----------
+      const modal = document.getElementById('password-modal');
+      const modalBox = document.getElementById('modal-box');
+      const pwInput = document.getElementById('password-input');
+      const pwError = document.getElementById('password-error');
+      const pwSubmit = document.getElementById('password-submit');
+      const pwCancel = document.getElementById('password-cancel');
+      const panel = document.getElementById('admin-panel');
+      const rowsContainer = document.getElementById('rows-container');
+      const customRowsContainer = document.getElementById('custom-rows-container');
+      const addCustomBtn = document.getElementById('add-custom-btn');
+      const pagesContainer = document.getElementById('pages-container');
+      const addPageBtn = document.getElementById('add-page-btn');
+      const clearChatBtn = document.getElementById('clear-chat-btn');
+      const clearChatStatus = document.getElementById('clear-chat-status');
+      const saveBtn = document.getElementById('save-config-btn');
+      const statusEl = document.getElementById('admin-status');
+      const noteEl = document.getElementById('config-note');
+
+      let customPages = [];
+
+      let config = null;
+      let currentEditKey = null;
+
+      const FALLBACK_CONFIG = {
+        admin:       { trigger: "ADMIN",       enabled: true },
+        interactive: { trigger: "interactive", enabled: true },
+        portfolio:   { trigger: "portfolio",   enabled: true },
+        custom: []
+      };
+
+      function fetchConfig() {
+        if (!API_BASE) {
+          config = JSON.parse(JSON.stringify(FALLBACK_CONFIG));
+          noteEl.textContent = "No Worker URL is set (API_BASE is blank), so these settings will not sync to other visitors — set API_BASE in this file and in index.html to make them global.";
+          renderRows();
+          return Promise.resolve();
+        }
+        noteEl.textContent = "";
+        return fetch(API_BASE + '/api/config')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            config = data;
+            if (!Array.isArray(config.custom)) config.custom = [];
+            renderRows();
+          })
+          .catch(function (err) {
+            console.error(err);
+            config = JSON.parse(JSON.stringify(FALLBACK_CONFIG));
+            noteEl.textContent = "Could not reach the Worker — showing defaults. Changes won't save until the connection works.";
+            renderRows();
+          });
+      }
+
+      function fetchPages() {
+        if (!API_BASE) { customPages = []; renderPages(); return Promise.resolve(); }
+        return fetch(API_BASE + '/api/pages')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            customPages = Array.isArray(data) ? data : [];
+            renderPages();
+          })
+          .catch(function (err) {
+            console.error(err);
+            customPages = [];
+            renderPages();
+          });
+      }
+
+      function renderPages() {
+        pagesContainer.innerHTML = '';
+        customPages.forEach(function (page) {
+          const entry = document.createElement('div');
+          entry.className = 'page-entry';
+
+          const top = document.createElement('div');
+          top.className = 'page-entry-top';
+
+          const slugInput = document.createElement('input');
+          slugInput.type = 'text';
+          slugInput.className = 'slug-input';
+          slugInput.placeholder = 'my-page-slug';
+          slugInput.value = page.slug || '';
+          slugInput.addEventListener('input', function () {
+            // Keep it URL-safe: lowercase letters, numbers, dashes and
+            // slashes (for nested paths like "test/about-us"). Collapse
+            // repeated slashes and strip leading/trailing ones as you type.
+            let v = slugInput.value.toLowerCase().replace(/[^a-z0-9-\/]/g, '-');
+            v = v.replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '');
+            page.slug = v;
+            slugInput.value = page.slug;
+            urlLabel.textContent = PAGES_BASE ? (PAGES_BASE + '/page/' + page.slug) : (API_BASE ? (API_BASE + '/page/' + page.slug) : '(set API_BASE to get a URL)');
+            statusEl.textContent = 'Unsaved changes';
+          });
+
+          const urlLabel = document.createElement('div');
+          urlLabel.className = 'page-url';
+          urlLabel.textContent = pageUrlFor(page.slug);
+
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'copy-btn';
+          copyBtn.type = 'button';
+          copyBtn.title = 'Copy link';
+          copyBtn.textContent = '\u29C9';
+          copyBtn.addEventListener('click', function () {
+            const fullUrl = pageUrlFor(page.slug);
+            if (!fullUrl || fullUrl.indexOf('(set') === 0) return;
+            navigator.clipboard.writeText(fullUrl).then(function () {
+              copyBtn.classList.add('copied');
+              copyBtn.textContent = '\u2713';
+              setTimeout(function () {
+                copyBtn.classList.remove('copied');
+                copyBtn.textContent = '\u29C9';
+              }, 1200);
+            }).catch(function (err) {
+              console.error('Copy failed:', err);
+            });
+          });
+
+          top.appendChild(slugInput);
+          top.appendChild(urlLabel);
+          top.appendChild(copyBtn);
+
+          const htmlInput = document.createElement('textarea');
+          htmlInput.className = 'html-input';
+          htmlInput.placeholder = '<!DOCTYPE html>...';
+          htmlInput.spellcheck = false;
+          htmlInput.value = page.html || '';
+          htmlInput.addEventListener('input', function () {
+            page.html = htmlInput.value;
+            statusEl.textContent = 'Unsaved changes';
+          });
+
+          const bottom = document.createElement('div');
+          bottom.className = 'page-entry-bottom';
+
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn';
+          removeBtn.textContent = '\u2715 Remove Page';
+          removeBtn.addEventListener('click', function () {
+            customPages = customPages.filter(function (p) { return p !== page; });
+            renderPages();
+            statusEl.textContent = 'Unsaved changes';
+          });
+          bottom.appendChild(removeBtn);
+
+          entry.appendChild(top);
+          entry.appendChild(htmlInput);
+          entry.appendChild(bottom);
+          pagesContainer.appendChild(entry);
+        });
+      }
+
+      addPageBtn.addEventListener('click', function () {
+        customPages.push({ slug: 'page-' + Math.random().toString(36).slice(2, 7), html: '<!DOCTYPE html>\n<html>\n<body style="background:#141413;color:#faf9f5;font-family:sans-serif;">\n  <h1>New page</h1>\n</body>\n</html>' });
+        renderPages();
+        statusEl.textContent = 'Unsaved changes';
+      });
+
+      function savePages() {
+        if (!API_BASE) return Promise.resolve();
+        const SLUG_RE = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
+        const badPage = customPages.find(function (p) {
+          return !p.slug || !SLUG_RE.test(p.slug) || !p.html || !p.html.trim();
+        });
+        if (badPage) {
+          const idx = customPages.indexOf(badPage) + 1;
+          return Promise.reject(new Error(
+            'Custom page #' + idx + ' (slug: "' + (badPage.slug || '(empty)') + '") needs a valid ' +
+            'lowercase/number/dash/slash path and non-empty HTML.'
+          ));
+        }
+        return fetch(API_BASE + '/api/pages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Edit-Key': currentEditKey || ''
+          },
+          body: JSON.stringify(customPages)
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) throw new Error(data.error ? ('Pages: ' + data.error + (data.badSlug ? ' ("' + data.badSlug + '")' : '')) : ('Pages save failed: ' + r.status));
+          });
+        });
+      }
+
+      function renderRows() {
+        rowsContainer.innerHTML = '';
+        PAGE_ORDER.forEach(function (slug) {
+          const entry = config[slug] || { trigger: '', enabled: true };
+          const isAdmin = slug === 'admin';
+
+          const row = document.createElement('div');
+          row.className = 'row';
+
+          const label = document.createElement('div');
+          label.className = 'label';
+          label.textContent = PAGE_LABELS[slug];
+
+          const triggerInput = document.createElement('input');
+          triggerInput.type = 'text';
+          // Admin's trigger word is fixed and shown as such, regardless
+          // of whatever might be in the loaded config.
+          triggerInput.value = isAdmin ? ADMIN_FIXED_TRIGGER : entry.trigger;
+          triggerInput.dataset.slug = slug;
+          triggerInput.dataset.field = 'trigger';
+          triggerInput.placeholder = 'trigger word';
+          triggerInput.disabled = isAdmin;
+
+          const toggleWrap = document.createElement('label');
+          toggleWrap.className = 'toggle';
+          const toggleInput = document.createElement('input');
+          toggleInput.type = 'checkbox';
+          // The admin entry is always forced on, both here and on the
+          // server, so you can never save yourself out of this page.
+          // Its trigger word is likewise fixed above — both are
+          // grayed out rather than explained with a note.
+          toggleInput.checked = isAdmin ? true : entry.enabled !== false;
+          toggleInput.disabled = isAdmin;
+          toggleInput.dataset.slug = slug;
+          toggleInput.dataset.field = 'enabled';
+          const slider = document.createElement('span');
+          slider.className = 'slider';
+          toggleWrap.appendChild(toggleInput);
+          toggleWrap.appendChild(slider);
+
+          if (!isAdmin) {
+            triggerInput.addEventListener('input', onFieldChange);
+            toggleInput.addEventListener('change', onFieldChange);
+          }
+
+          row.appendChild(label);
+          row.appendChild(triggerInput);
+          row.appendChild(toggleWrap);
+          rowsContainer.appendChild(row);
+        });
+
+        renderCustomRows();
+      }
+
+      function renderCustomRows() {
+        customRowsContainer.innerHTML = '';
+        (config.custom || []).forEach(function (item) {
+          const row = document.createElement('div');
+          row.className = 'custom-row';
+          row.dataset.id = item.id;
+
+          const triggerInput = document.createElement('input');
+          triggerInput.type = 'text';
+          triggerInput.className = 'trigger-input';
+          triggerInput.placeholder = 'trigger word';
+          triggerInput.value = item.trigger || '';
+          triggerInput.addEventListener('input', function () {
+            item.trigger = triggerInput.value;
+            statusEl.textContent = 'Unsaved changes';
+          });
+
+          const destInput = document.createElement('input');
+          destInput.type = 'text';
+          destInput.className = 'dest-input';
+          destInput.placeholder = '/page.html or https://example.com';
+          destInput.value = item.destination || '';
+          destInput.addEventListener('input', function () {
+            item.destination = destInput.value;
+            statusEl.textContent = 'Unsaved changes';
+          });
+
+          const toggleWrap = document.createElement('label');
+          toggleWrap.className = 'toggle';
+          const toggleInput = document.createElement('input');
+          toggleInput.type = 'checkbox';
+          toggleInput.checked = item.enabled !== false;
+          toggleInput.addEventListener('change', function () {
+            item.enabled = toggleInput.checked;
+            statusEl.textContent = 'Unsaved changes';
+          });
+          const slider = document.createElement('span');
+          slider.className = 'slider';
+          toggleWrap.appendChild(toggleInput);
+          toggleWrap.appendChild(slider);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn';
+          removeBtn.textContent = '\u2715';
+          removeBtn.title = 'Remove this redirect';
+          removeBtn.addEventListener('click', function () {
+            config.custom = config.custom.filter(function (c) { return c.id !== item.id; });
+            renderCustomRows();
+            statusEl.textContent = 'Unsaved changes';
+          });
+
+          row.appendChild(triggerInput);
+          row.appendChild(destInput);
+          row.appendChild(toggleWrap);
+          row.appendChild(removeBtn);
+          customRowsContainer.appendChild(row);
+        });
+      }
+
+      addCustomBtn.addEventListener('click', function () {
+        if (!config.custom) config.custom = [];
+        config.custom.push({
+          id: 'c' + Math.random().toString(36).slice(2, 9),
+          trigger: '',
+          destination: '',
+          enabled: true
+        });
+        renderCustomRows();
+        statusEl.textContent = 'Unsaved changes';
+      });
+
+      function onFieldChange(e) {
+        const slug = e.target.dataset.slug;
+        const field = e.target.dataset.field;
+        if (!config[slug]) config[slug] = {};
+        if (field === 'trigger') {
+          config[slug].trigger = e.target.value;
+        } else if (field === 'enabled') {
+          config[slug].enabled = e.target.checked;
+        }
+        statusEl.textContent = 'Unsaved changes';
+      }
+
+      function saveConfig() {
+        // Guard against saving a blank trigger word for the three
+        // fixed pages, which would make one permanently unreachable.
+        const blank = PAGE_ORDER.find(function (slug) {
+          return !config[slug] || !config[slug].trigger || !config[slug].trigger.trim();
+        });
+        if (blank) {
+          statusEl.textContent = 'Trigger words can\u2019t be blank.';
+          return;
+        }
+
+        // Same check for any custom redirects that have been given a
+        // trigger but no destination, or vice versa.
+        const badCustom = (config.custom || []).find(function (item) {
+          return !item.trigger || !item.trigger.trim() || !item.destination || !item.destination.trim();
+        });
+        if (badCustom) {
+          statusEl.textContent = 'Every custom redirect needs both a trigger word and a destination.';
+          return;
+        }
+
+        // Belt-and-suspenders: never even attempt to save admin as
+        // disabled or renamed (the Worker enforces both either way).
+        config.admin.enabled = true;
+        config.admin.trigger = ADMIN_FIXED_TRIGGER;
+
+        if (!API_BASE) {
+          statusEl.textContent = 'No Worker URL set \u2014 nothing to save to.';
+          return;
+        }
+
+        statusEl.textContent = 'Saving...';
+
+        const configSave = fetch(API_BASE + '/api/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Edit-Key': currentEditKey || ''
+          },
+          body: JSON.stringify(config)
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) throw new Error(data.error ? ('Config: ' + data.error) : ('Config save failed: ' + r.status));
+          });
+        });
+
+        // Reported separately from pages, on purpose: a bad custom page
+        // shouldn't make it look like your trigger words didn't save
+        // when they actually did (or vice versa).
+        Promise.allSettled([configSave, savePages()]).then(function (results) {
+          const configResult = results[0];
+          const pagesResult = results[1];
+          if (configResult.status === 'fulfilled' && pagesResult.status === 'fulfilled') {
+            statusEl.textContent = 'Saved \u2014 live for everyone';
+            setTimeout(function () { statusEl.textContent = ''; }, 2500);
+          } else {
+            const parts = [];
+            if (configResult.status === 'fulfilled') parts.push('Trigger words/redirects saved OK.');
+            else parts.push(configResult.reason && configResult.reason.message ? configResult.reason.message : 'Trigger words/redirects failed to save.');
+            if (pagesResult.status === 'rejected') {
+              parts.push(pagesResult.reason && pagesResult.reason.message ? pagesResult.reason.message : 'Custom pages failed to save.');
+            }
+            statusEl.textContent = parts.join(' ');
+          }
+        });
+      }
+
+      saveBtn.addEventListener('click', saveConfig);
+
+      clearChatBtn.addEventListener('click', function () {
+        if (!API_BASE) { clearChatStatus.textContent = 'No Worker URL set.'; return; }
+        if (!window.confirm('Clear every chat message for everyone? This can\u2019t be undone.')) return;
+        clearChatStatus.textContent = 'Clearing...';
+        fetch(API_BASE + '/api/chat/clear', {
+          method: 'POST',
+          headers: { 'X-Edit-Key': currentEditKey || '' }
+        }).then(function (r) {
+          if (!r.ok) throw new Error('Failed: ' + r.status);
+          clearChatStatus.textContent = 'Chat cleared';
+          setTimeout(function () { clearChatStatus.textContent = ''; }, 2000);
+        }).catch(function (err) {
+          console.error(err);
+          clearChatStatus.textContent = 'Failed to clear chat';
+        });
+      });
+
+      // ---------- Password modal ----------
+      function attemptUnlock() {
+        if (pwInput.value === ADMIN_PASSWORD) {
+          currentEditKey = pwInput.value;
+          modal.classList.add('hidden');
+          panel.classList.remove('hidden');
+          fetchConfig();
+          fetchPages();
+        } else {
+          pwError.classList.remove('hidden');
+          modalBox.classList.remove('shake');
+          void modalBox.offsetWidth;
+          modalBox.classList.add('shake');
+          pwInput.value = '';
+          pwInput.focus();
+        }
+      }
+
+      pwSubmit.addEventListener('click', attemptUnlock);
+      pwCancel.addEventListener('click', function () { window.location.href = HOME_PAGE; });
+      pwInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); attemptUnlock(); }
+      });
+
+      // Enter resets to home, but only when not actively typing somewhere.
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        if (!modal.classList.contains('hidden')) return; // modal handles its own Enter
+        const tag = document.activeElement ? document.activeElement.tagName : '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        window.location.href = HOME_PAGE;
+      });
+
+      setTimeout(function () { pwInput.focus(); }, 30);
+    })();
+  </script>
+
+</body>
+</html>
