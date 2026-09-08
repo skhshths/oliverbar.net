@@ -31,7 +31,10 @@ All under [`site/`](./site):
   - **Experimental** — extra, lower-stakes stuff: a live count of how many tabs currently have the site open, and a usage count per trigger word. More may show up here over time.
 - **`x923j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Interactive**. A drag/resize box builder with a per-box CSS editor, gated by the same password. Layout is saved to the Worker so every visitor sees the same canvas.
 - **`x933j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Portfolio**. Blank black page. `Enter` sends you home.
-- **`x943j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Global Chat**. Enter a display name and a PIN, then post messages everyone currently on the page can see (polls the Worker every 3 seconds). No admin password needed to chat — but the first message sent under a given name claims it with that PIN, and every later message under that name must use the same PIN, so nobody else can post as you. Wrong PIN bounces you back to the name prompt instead of silently posting.
+- **`x943j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Chat**. Log in with a display name and PIN — the first login under a given name claims it with that PIN, every later login must match. No admin password needed. Once logged in:
+  - **Global Chat** — visible to everyone, polls every 3 seconds, same as before.
+  - **Direct Messages** — a sidebar lists your conversations (name, last message preview, an unread dot), with a "Message someone..." box to start a new one. Only the two people in a conversation can read it. Full history is there every time you log back in, on any device, as long as you know the name and PIN — like iMessage, minus the phone number.
+  - A saved login persists for a week (`localStorage`), so reopening the page skips straight back in without re-entering the PIN. A quiet "Log out" link in the sidebar clears that if the device isn't just yours.
 
 The four hidden pages are named with long random-looking filenames on purpose — the only supported way in is through the correct trigger word on `index.html`, not by guessing or browsing a directory listing.
 
@@ -61,7 +64,8 @@ Every password check on this site (the editor, the admin panel) is plain client-
 Other things worth knowing:
 
 - **Chat names are claimed with a PIN, not a real login.** The PIN is hashed (never stored in the clear) and stops casual impersonation, but there's no rate limiting on guessing it, and a short PIN is guessable — see the API repo's README for the full picture, including the small race window if two people claim the same new name at the exact same moment.
-- **Chat has zero rate limiting or moderation beyond that.** See the API repo's README for what that means in practice and what stronger options exist (Turnstile, Durable Objects) if you want them later.
+- **Direct messages are only readable by their two participants** — the Worker checks this server-side, not just in the UI — but there's no encryption beyond Cloudflare's normal HTTPS, no delete/edit, and the admin's Accounts tab can see *who* has claimed a name without being able to read what they've sent anyone.
+- **Chat has zero rate limiting or moderation beyond the PIN check.** See the API repo's README for what that means in practice and what stronger options exist (Turnstile, Durable Objects) if you want them later.
 - **Custom-page HTML is served as-is**, including any `<script>` tags. Since only someone with the admin password can create one, this is consistent with the rest of the site's trust model, but there's no sandboxing of what a custom page can do once visited.
 - **The Custom Pages access token is a casual gate, same as everything else here** — it stops accidental bookmarking/reloading, not someone reading the client-side source and calling the token-minting endpoint themselves.
 - **Custom redirects to a file on this same site don't automatically get the "block direct navigation" guard** the built-in hidden pages have — that logic lives inside each page's own code. To add it to a custom page, drop this near the top of its `<body>`:

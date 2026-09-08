@@ -35,9 +35,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
   }
 
-  /* --- Name prompt --- */
+  /* --- Login prompt --- */
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -86,35 +88,154 @@
     cursor: pointer;
   }
   .modal-box button:hover { background-color: var(--accent-hover); color: var(--text-light); }
+  .modal-box button:disabled { opacity: 0.6; cursor: default; }
   .modal-box .hint { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
   .modal-box .modal-error { font-size: 12px; color: var(--danger); margin-top: 10px; }
   .modal-box .modal-error.hidden { display: none; }
 
-  /* --- Chat UI --- */
+  /* --- Chat shell --- */
   #chat-wrap {
-    width: 480px;
-    max-width: 94vw;
-    height: 80vh;
-    max-height: 640px;
+    width: 780px;
+    max-width: 96vw;
+    height: 82vh;
+    max-height: 660px;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-col);
     border-radius: 14px;
     display: flex;
-    flex-direction: column;
     overflow: hidden;
   }
   #chat-wrap.hidden { display: none; }
+
+  /* --- Sidebar --- */
+  #chat-sidebar {
+    width: 230px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border-col);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #sidebar-header {
+    padding: 14px 16px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  #sidebar-header .my-name { color: var(--accent); font-weight: 600; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text-light);
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { background-color: var(--panel-bg-2); }
+  .nav-item.active { background-color: var(--panel-bg-2); border-left-color: var(--accent); }
+
+  #dm-section-label {
+    padding: 14px 16px 4px;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+
+  #new-dm-row {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px 10px;
+  }
+  #new-dm-input {
+    flex: 1;
+    min-width: 0;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    outline: none;
+  }
+  #new-dm-input:focus { border-color: var(--accent); }
+  #new-dm-btn {
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #new-dm-btn:hover { border-color: var(--accent); }
+
+  #thread-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .thread-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .thread-item:hover { background-color: var(--panel-bg-2); }
+  .thread-item.active { background-color: var(--panel-bg-2); border-left-color: var(--accent); }
+  .thread-item .thread-info { flex: 1; min-width: 0; }
+  .thread-item .thread-name { font-size: 13px; font-weight: 600; }
+  .thread-item .thread-preview {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .thread-item .unread-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+  #threads-empty { padding: 6px 16px; font-size: 11.5px; color: var(--muted); }
+
+  #sidebar-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-col);
+  }
+  #logout-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 11.5px;
+    cursor: pointer;
+    padding: 0;
+  }
+  #logout-btn:hover { color: var(--text-light); }
+
+  /* --- Main pane --- */
+  #chat-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
 
   #chat-header {
     padding: 14px 18px;
     border-bottom: 1px solid var(--border-col);
     font-size: 13px;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    color: var(--text-light);
+    font-weight: 600;
   }
-  #chat-header .name-tag { color: var(--accent); font-weight: 600; }
+  #chat-header .chat-header-sub { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 2px; }
 
   #messages {
     flex: 1;
@@ -124,9 +245,10 @@
     flex-direction: column;
     gap: 10px;
   }
+  #messages-empty { font-size: 12px; color: var(--muted); margin: auto; text-align: center; }
 
   .msg {
-    max-width: 80%;
+    max-width: 78%;
     padding: 8px 12px;
     border-radius: 12px;
     background-color: var(--panel-bg-2);
@@ -185,24 +307,43 @@
         <p class="title">What should we call you?</p>
         <input type="text" id="name-input" maxlength="24" autocomplete="off" autofocus placeholder="Your name">
         <input type="password" id="pin-input" maxlength="32" autocomplete="off" placeholder="PIN (3+ characters)">
-        <button id="name-submit">Join Chat</button>
+        <button id="name-submit">Log In</button>
         <p class="modal-error hidden" id="name-error"></p>
-        <p class="hint">The first time you use a name, your PIN claims it — anyone else typing that name later needs the same PIN. This is a public chat; anyone who reaches this page can read messages.</p>
+        <p class="hint">The first time you use a name, your PIN claims it — anyone else typing that name later needs the same PIN. Global chat is public; direct messages are only visible to the two of you.</p>
       </div>
     </div>
 
     <div id="chat-wrap" class="hidden">
-      <div id="chat-header">
-        <span>Global Chat</span>
-        <span>chatting as <span class="name-tag" id="my-name"></span></span>
-      </div>
-      <div id="messages"></div>
-      <div id="compose">
-        <div id="compose-row">
-          <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
-          <button id="send-btn">Send</button>
+      <div id="chat-sidebar">
+        <div id="sidebar-header">logged in as <span class="my-name" id="sidebar-my-name"></span></div>
+        <div class="nav-item active" id="nav-global">Global Chat</div>
+
+        <div id="dm-section-label">Direct Messages</div>
+        <div id="new-dm-row">
+          <input type="text" id="new-dm-input" maxlength="24" placeholder="Message someone...">
+          <button id="new-dm-btn">Go</button>
         </div>
-        <div id="compose-status"></div>
+        <div id="thread-list"></div>
+        <div id="threads-empty" class="hidden">No conversations yet.</div>
+
+        <div id="sidebar-footer">
+          <button id="logout-btn">Log out</button>
+        </div>
+      </div>
+
+      <div id="chat-main">
+        <div id="chat-header">
+          <div id="chat-header-title">Global Chat</div>
+          <div class="chat-header-sub" id="chat-header-sub">visible to everyone</div>
+        </div>
+        <div id="messages"></div>
+        <div id="compose">
+          <div id="compose-row">
+            <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+          </div>
+          <div id="compose-status"></div>
+        </div>
       </div>
     </div>
 
@@ -216,7 +357,10 @@
       const HOME_PAGE = "/";
       const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
       const POLL_MS = 3000;
+      const THREADS_POLL_MS = 5000;
       const REMEMBER_KEY = "chatIdentity"; // localStorage convenience only, not a security boundary
+      const SESSION_KEY = "chatSession"; // { token, name } — this is what makes login persist
+      const READ_STATE_KEY = "chatReadState"; // { [partnerLower]: lastReadTs }, for the unread dots
 
       // ---------- Direct-access guard ----------
       if (sessionStorage.getItem(ACCESS_KEY) !== "chat") {
@@ -230,31 +374,38 @@
       const pinInput = document.getElementById('pin-input');
       const nameSubmit = document.getElementById('name-submit');
       const nameError = document.getElementById('name-error');
+
       const chatWrap = document.getElementById('chat-wrap');
-      const myNameEl = document.getElementById('my-name');
+      const sidebarMyName = document.getElementById('sidebar-my-name');
+      const navGlobal = document.getElementById('nav-global');
+      const newDmInput = document.getElementById('new-dm-input');
+      const newDmBtn = document.getElementById('new-dm-btn');
+      const threadList = document.getElementById('thread-list');
+      const threadsEmpty = document.getElementById('threads-empty');
+      const logoutBtn = document.getElementById('logout-btn');
+
+      const chatHeaderTitle = document.getElementById('chat-header-title');
+      const chatHeaderSub = document.getElementById('chat-header-sub');
       const messagesEl = document.getElementById('messages');
       const chatInput = document.getElementById('chat-input');
       const sendBtn = document.getElementById('send-btn');
       const composeStatus = document.getElementById('compose-status');
 
+      let sessionToken = '';
       let myName = '';
-      let myPin = '';
+      let currentView = 'global'; // 'global' | 'dm'
+      let currentPartner = '';
       let pollTimer = null;
-      let lastRenderedCount = 0;
+      let threadsPollTimer = null;
+      let lastRenderedKey = ''; // guards against re-rendering identical message lists
 
-      // Pre-fill from a previous visit on this device, purely for
-      // convenience — this is localStorage on the visitor's own
-      // browser, not a login session.
-      try {
-        const remembered = JSON.parse(localStorage.getItem(REMEMBER_KEY) || 'null');
-        if (remembered && remembered.name) nameInput.value = remembered.name;
-        if (remembered && remembered.pin) pinInput.value = remembered.pin;
-      } catch (e) {}
-
-      function rememberIdentity() {
-        try {
-          localStorage.setItem(REMEMBER_KEY, JSON.stringify({ name: myName, pin: myPin }));
-        } catch (e) {}
+      function readReadState() {
+        try { return JSON.parse(localStorage.getItem(READ_STATE_KEY) || '{}'); } catch (e) { return {}; }
+      }
+      function markRead(partner) {
+        const state = readReadState();
+        state[partner.toLowerCase()] = Date.now();
+        try { localStorage.setItem(READ_STATE_KEY, JSON.stringify(state)); } catch (e) {}
       }
 
       function showNameError(msg) {
@@ -262,7 +413,14 @@
         nameError.classList.remove('hidden');
       }
 
-      function joinChat() {
+      // ---------- Login ----------
+      try {
+        const remembered = JSON.parse(localStorage.getItem(REMEMBER_KEY) || 'null');
+        if (remembered && remembered.name) nameInput.value = remembered.name;
+        if (remembered && remembered.pin) pinInput.value = remembered.pin;
+      } catch (e) {}
+
+      function attemptLogin() {
         const val = nameInput.value.trim().slice(0, 24);
         const pinVal = pinInput.value;
         if (!val) { nameInput.focus(); return; }
@@ -272,39 +430,167 @@
           return;
         }
         nameError.classList.add('hidden');
-        myName = val;
-        myPin = pinVal;
-        myNameEl.textContent = myName;
-        nameModal.classList.add('hidden');
-        chatWrap.classList.remove('hidden');
-        chatInput.focus();
-        fetchMessages();
-        pollTimer = setInterval(fetchMessages, POLL_MS);
+        nameSubmit.disabled = true;
+        fetch(API_BASE + '/api/chat/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: val, pin: pinVal })
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) throw new Error(data.error || ('Login failed: ' + r.status));
+            return data;
+          });
+        }).then(function (data) {
+          try { localStorage.setItem(REMEMBER_KEY, JSON.stringify({ name: val, pin: pinVal })); } catch (e) {}
+          try { localStorage.setItem(SESSION_KEY, JSON.stringify({ token: data.token, name: data.name })); } catch (e) {}
+          enterChat(data.token, data.name);
+        }).catch(function (err) {
+          showNameError(err.message || 'Could not log in.');
+        }).finally(function () {
+          nameSubmit.disabled = false;
+        });
       }
 
-      nameSubmit.addEventListener('click', joinChat);
+      nameSubmit.addEventListener('click', attemptLogin);
       [nameInput, pinInput].forEach(function (el) {
         el.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') { e.preventDefault(); joinChat(); }
+          if (e.key === 'Enter') { e.preventDefault(); attemptLogin(); }
         });
       });
 
-      function renderMessages(messages) {
-        // Only redraw if the count changed, so scroll position isn't
-        // fought over on every poll tick.
-        if (messages.length === lastRenderedCount) return;
-        lastRenderedCount = messages.length;
+      function tryAutoLogin() {
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) {}
+        if (!saved || !saved.token || !saved.name) { setTimeout(function () { nameInput.focus(); }, 30); return; }
+        fetch(API_BASE + '/api/chat/session', {
+          headers: { 'X-Chat-Session': saved.token }
+        }).then(function (r) {
+          if (!r.ok) throw new Error('expired');
+          return r.json();
+        }).then(function (data) {
+          enterChat(saved.token, data.name);
+        }).catch(function () {
+          try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+          setTimeout(function () { nameInput.focus(); }, 30);
+        });
+      }
+
+      logoutBtn.addEventListener('click', function () {
+        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+        window.location.reload();
+      });
+
+      // ---------- Entering the chat ----------
+      function enterChat(token, name) {
+        sessionToken = token;
+        myName = name;
+        sidebarMyName.textContent = myName;
+        nameModal.classList.add('hidden');
+        chatWrap.classList.remove('hidden');
+        chatInput.focus();
+
+        fetchThreads();
+        threadsPollTimer = setInterval(fetchThreads, THREADS_POLL_MS);
+        switchToGlobal();
+      }
+
+      // ---------- View switching ----------
+      function switchToGlobal() {
+        currentView = 'global';
+        currentPartner = '';
+        navGlobal.classList.add('active');
+        chatHeaderTitle.textContent = 'Global Chat';
+        chatHeaderSub.textContent = 'visible to everyone';
+        lastRenderedKey = '';
+        messagesEl.innerHTML = '';
+        renderThreadListActiveState();
+        restartPolling();
+      }
+
+      function switchToDm(partner) {
+        currentView = 'dm';
+        currentPartner = partner;
+        navGlobal.classList.remove('active');
+        chatHeaderTitle.textContent = partner;
+        chatHeaderSub.textContent = 'only visible to the two of you';
+        lastRenderedKey = '';
+        messagesEl.innerHTML = '';
+        markRead(partner);
+        renderThreadListActiveState();
+        restartPolling();
+      }
+
+      navGlobal.addEventListener('click', switchToGlobal);
+
+      function openNewDm() {
+        const target = newDmInput.value.trim().slice(0, 24);
+        if (!target) return;
+        if (target.toLowerCase() === myName.toLowerCase()) {
+          composeStatus.textContent = "That's you — can't DM yourself.";
+          return;
+        }
+        newDmInput.value = '';
+        switchToDm(target);
+      }
+      newDmBtn.addEventListener('click', openNewDm);
+      newDmInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); openNewDm(); }
+      });
+
+      // ---------- Polling ----------
+      function restartPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        fetchActiveMessages();
+        pollTimer = setInterval(fetchActiveMessages, POLL_MS);
+      }
+
+      function fetchActiveMessages() {
+        if (currentView === 'global') {
+          fetch(API_BASE + '/api/chat')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              renderMessages((Array.isArray(data) ? data : []).map(function (m) {
+                return { who: m.name, text: m.text, ts: m.ts };
+              }), 'global');
+            })
+            .catch(function (err) { console.error('Failed to load chat:', err); });
+        } else {
+          fetch(API_BASE + '/api/dm/messages?with=' + encodeURIComponent(currentPartner), {
+            headers: { 'X-Chat-Session': sessionToken }
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              renderMessages((Array.isArray(data) ? data : []).map(function (m) {
+                return { who: m.from, text: m.text, ts: m.ts };
+              }), 'dm:' + currentPartner);
+              markRead(currentPartner);
+            })
+            .catch(function (err) { console.error('Failed to load DM:', err); });
+        }
+      }
+
+      function renderMessages(items, renderKey) {
+        const bucketKey = renderKey + ':' + items.length;
+        if (bucketKey === lastRenderedKey) return;
+        lastRenderedKey = bucketKey;
 
         const wasAtBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 40;
 
         messagesEl.innerHTML = '';
-        messages.forEach(function (m) {
+        if (items.length === 0) {
+          const empty = document.createElement('div');
+          empty.id = 'messages-empty';
+          empty.textContent = currentView === 'global' ? 'No messages yet — say something.' : 'No messages yet — say hi.';
+          messagesEl.appendChild(empty);
+          return;
+        }
+        items.forEach(function (m) {
           const bubble = document.createElement('div');
-          bubble.className = 'msg' + (m.name === myName ? ' own' : '');
+          bubble.className = 'msg' + (m.who === myName ? ' own' : '');
 
           const nameEl = document.createElement('div');
           nameEl.className = 'msg-name';
-          nameEl.textContent = m.name; // textContent only — never render chat content as HTML
+          nameEl.textContent = m.who; // textContent only — never render chat content as HTML
 
           const textEl = document.createElement('div');
           textEl.textContent = m.text; // same here — this is untrusted, open input
@@ -319,34 +605,72 @@
         }
       }
 
-      function fetchMessages() {
-        fetch(API_BASE + '/api/chat')
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            renderMessages(Array.isArray(data) ? data : []);
-          })
-          .catch(function (err) {
-            console.error('Failed to load chat messages:', err);
-          });
+      // ---------- DM thread list ----------
+      function fetchThreads() {
+        fetch(API_BASE + '/api/dm/threads', {
+          headers: { 'X-Chat-Session': sessionToken }
+        }).then(function (r) { return r.json(); })
+          .then(function (data) { renderThreads(Array.isArray(data) ? data : []); })
+          .catch(function (err) { console.error('Failed to load threads:', err); });
       }
 
-      function returnToNameModal(message) {
-        chatWrap.classList.add('hidden');
-        nameModal.classList.remove('hidden');
-        showNameError(message);
-        pinInput.value = '';
-        pinInput.focus();
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      let latestThreads = [];
+      function renderThreads(threads) {
+        latestThreads = threads;
+        threadList.innerHTML = '';
+        threadsEmpty.classList.toggle('hidden', threads.length > 0);
+        const readState = readReadState();
+
+        threads.forEach(function (t) {
+          const item = document.createElement('div');
+          item.className = 'thread-item' + (currentView === 'dm' && currentPartner.toLowerCase() === t.partner.toLowerCase() ? ' active' : '');
+          item.addEventListener('click', function () { switchToDm(t.partner); });
+
+          const info = document.createElement('div');
+          info.className = 'thread-info';
+
+          const nameEl = document.createElement('div');
+          nameEl.className = 'thread-name';
+          nameEl.textContent = t.partner;
+
+          const previewEl = document.createElement('div');
+          previewEl.className = 'thread-preview';
+          const prefix = t.lastFrom === myName ? 'You: ' : '';
+          previewEl.textContent = prefix + (t.lastText || '');
+
+          info.appendChild(nameEl);
+          info.appendChild(previewEl);
+          item.appendChild(info);
+
+          const isUnread = t.lastFrom !== myName && t.lastTs > (readState[t.partner.toLowerCase()] || 0);
+          if (isUnread) {
+            const dot = document.createElement('div');
+            dot.className = 'unread-dot';
+            item.appendChild(dot);
+          }
+
+          threadList.appendChild(item);
+        });
       }
 
+      function renderThreadListActiveState() {
+        renderThreads(latestThreads);
+      }
+
+      // ---------- Sending ----------
       function sendMessage() {
         const text = chatInput.value.trim();
         if (!text) return;
         composeStatus.textContent = '';
-        fetch(API_BASE + '/api/chat', {
+
+        const isDm = currentView === 'dm';
+        const url = isDm ? '/api/dm/send' : '/api/chat';
+        const body = isDm ? { to: currentPartner, text: text } : { text: text };
+
+        fetch(API_BASE + url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: myName, pin: myPin, text: text })
+          headers: { 'Content-Type': 'application/json', 'X-Chat-Session': sessionToken },
+          body: JSON.stringify(body)
         }).then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (data) {
             if (!r.ok) {
@@ -358,12 +682,14 @@
           });
         }).then(function () {
           chatInput.value = '';
-          rememberIdentity();
-          fetchMessages();
+          lastRenderedKey = ''; // force a redraw even if the count matches
+          fetchActiveMessages();
+          if (isDm) fetchThreads();
         }).catch(function (err) {
           console.error(err);
           if (err.status === 401) {
-            returnToNameModal(err.message || 'That name is already claimed — wrong PIN.');
+            try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+            window.location.reload();
           } else {
             composeStatus.textContent = err.message || 'Could not send — try again.';
           }
@@ -376,10 +702,10 @@
       });
 
       // No global "Enter goes home" on this page — Enter is meaningful
-      // inside the name field, PIN field, and chat input, which are the
-      // only things on this page.
+      // inside the name field, PIN field, chat input, and the new-DM
+      // field, which are the only things on this page.
 
-      setTimeout(function () { nameInput.focus(); }, 30);
+      tryAutoLogin();
     })();
   </script>
 
