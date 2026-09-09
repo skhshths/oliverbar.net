@@ -479,6 +479,13 @@
   #trigger-stats-list { margin-bottom: 10px; min-height: 20px; }
   #trigger-stats-empty { font-size: 12px; color: var(--muted); }
   .exp-card.wide { grid-column: 1 / -1; }
+
+  /* --- Dashboard --- */
+  #dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
 </style>
 </head>
 <body>
@@ -503,7 +510,8 @@
 
       <div id="admin-layout">
         <div id="admin-nav">
-          <button class="nav-btn active" data-tab="site">Site &amp; Triggers</button>
+          <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+          <button class="nav-btn" data-tab="site">Site &amp; Triggers</button>
           <button class="nav-btn" data-tab="redirects">Custom Redirects</button>
           <button class="nav-btn" data-tab="pages">Custom Pages</button>
           <button class="nav-btn" data-tab="chat">Chat &amp; Accounts</button>
@@ -512,7 +520,39 @@
 
         <div id="admin-content">
 
-          <section class="tab-panel" data-tab="site">
+          <section class="tab-panel" data-tab="dashboard">
+            <h2>Dashboard</h2>
+            <p class="subtitle">A quick look at the whole site, at a glance.</p>
+            <div id="dashboard-grid">
+              <div class="exp-card">
+                <div class="exp-card-title">Global Messages</div>
+                <div class="exp-big" id="dash-global-messages">—</div>
+                <div class="exp-sub">all time</div>
+              </div>
+              <div class="exp-card">
+                <div class="exp-card-title">Direct Messages</div>
+                <div class="exp-big" id="dash-dm-messages">—</div>
+                <div class="exp-sub">all time</div>
+              </div>
+              <div class="exp-card">
+                <div class="exp-card-title">Accounts</div>
+                <div class="exp-big" id="dash-accounts">—</div>
+                <div class="exp-sub">names claimed</div>
+              </div>
+              <div class="exp-card">
+                <div class="exp-card-title">Live Now</div>
+                <div class="exp-big" id="dash-live-now">—</div>
+                <div class="exp-sub">tabs open, last 30s</div>
+              </div>
+              <div class="exp-card">
+                <div class="exp-card-title">Most-Used Trigger</div>
+                <div class="exp-big" id="dash-top-trigger" style="font-size: 22px;">—</div>
+                <div class="exp-sub" id="dash-top-trigger-count"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel hidden" data-tab="site">
             <h2>Built-in Pages</h2>
             <p class="subtitle">Admin's trigger word and toggle are locked so you can never edit yourself out of this page.</p>
             <div id="rows-container"></div>
@@ -638,6 +678,12 @@
       const triggerStatsList = document.getElementById('trigger-stats-list');
       const triggerStatsEmpty = document.getElementById('trigger-stats-empty');
       const refreshStatsBtn = document.getElementById('refresh-stats-btn');
+      const dashGlobalMessages = document.getElementById('dash-global-messages');
+      const dashDmMessages = document.getElementById('dash-dm-messages');
+      const dashAccounts = document.getElementById('dash-accounts');
+      const dashLiveNow = document.getElementById('dash-live-now');
+      const dashTopTrigger = document.getElementById('dash-top-trigger');
+      const dashTopTriggerCount = document.getElementById('dash-top-trigger-count');
 
       let customPages = [];
 
@@ -664,7 +710,9 @@
 
         if (presencePollTimer) { clearInterval(presencePollTimer); presencePollTimer = null; }
 
-        if (tab === 'chat') {
+        if (tab === 'dashboard') {
+          fetchDashboard();
+        } else if (tab === 'chat') {
           fetchAccounts();
         } else if (tab === 'experimental') {
           fetchTriggerStats();
@@ -1153,6 +1201,28 @@
           .catch(function (err) { console.error(err); });
       }
 
+      // ---------- Dashboard ----------
+      function fetchDashboard() {
+        if (!API_BASE) return;
+        fetch(API_BASE + '/api/admin/dashboard', {
+          headers: { 'X-Edit-Key': currentEditKey || '' }
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+            dashGlobalMessages.textContent = data.totalGlobalMessages != null ? data.totalGlobalMessages : '—';
+            dashDmMessages.textContent = data.totalDmMessages != null ? data.totalDmMessages : '—';
+            dashAccounts.textContent = data.totalAccounts != null ? data.totalAccounts : '—';
+            dashLiveNow.textContent = data.liveNow != null ? data.liveNow : '—';
+            if (data.topTrigger) {
+              dashTopTrigger.textContent = data.topTrigger.slug;
+              dashTopTriggerCount.textContent = data.topTrigger.count + ' use' + (data.topTrigger.count === 1 ? '' : 's');
+            } else {
+              dashTopTrigger.textContent = '—';
+              dashTopTriggerCount.textContent = 'none yet';
+            }
+          })
+          .catch(function (err) { console.error(err); });
+      }
+
       // ---------- Password modal ----------
       function attemptUnlock() {
         if (pwInput.value === ADMIN_PASSWORD) {
@@ -1161,6 +1231,7 @@
           panel.classList.remove('hidden');
           fetchConfig();
           fetchPages();
+          fetchDashboard();
         } else {
           pwError.classList.remove('hidden');
           modalBox.classList.remove('shake');

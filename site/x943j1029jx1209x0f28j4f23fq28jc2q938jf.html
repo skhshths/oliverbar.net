@@ -16,6 +16,7 @@
     --accent: #d97757;
     --accent-hover: #c96442;
     --danger: #b53333;
+    --good: #7a9c6e;
   }
 
   html, body {
@@ -39,7 +40,7 @@
     box-sizing: border-box;
   }
 
-  /* --- Login prompt --- */
+  /* --- Modals (login, settings, prompts) --- */
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -55,12 +56,16 @@
     background-color: var(--panel-bg);
     border: 1px solid var(--border-col);
     border-radius: 14px;
-    padding: 28px;
-    width: 300px;
+    padding: 26px;
+    width: 320px;
+    max-height: 84vh;
+    overflow-y: auto;
     text-align: center;
     box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    box-sizing: border-box;
   }
-  .modal-box p.title { margin: 0 0 16px; font-size: 15px; color: var(--muted); }
+  .modal-box.wide { width: 380px; text-align: left; }
+  .modal-box p.title { margin: 0 0 16px; font-size: 15px; color: var(--muted); text-align: center; }
   .modal-box input[type="text"], .modal-box input[type="password"] {
     width: 100%;
     box-sizing: border-box;
@@ -75,7 +80,7 @@
   }
   .modal-box input:first-of-type { margin-top: 0; }
   .modal-box input[type="text"]:focus, .modal-box input[type="password"]:focus { border-color: var(--accent); }
-  .modal-box button {
+  .modal-box button.primary {
     width: 100%;
     margin-top: 14px;
     background-color: var(--accent);
@@ -87,18 +92,85 @@
     font-size: 14px;
     cursor: pointer;
   }
-  .modal-box button:hover { background-color: var(--accent-hover); color: var(--text-light); }
-  .modal-box button:disabled { opacity: 0.6; cursor: default; }
+  .modal-box button.primary:hover { background-color: var(--accent-hover); color: var(--text-light); }
+  .modal-box button.primary:disabled { opacity: 0.6; cursor: default; }
   .modal-box .hint { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
   .modal-box .modal-error { font-size: 12px; color: var(--danger); margin-top: 10px; }
   .modal-box .modal-error.hidden { display: none; }
+  .modal-box .modal-ok { font-size: 12px; color: var(--good); margin-top: 10px; }
+  .modal-box .modal-ok.hidden { display: none; }
+  .modal-close-x {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .modal-close-x:hover { color: var(--text-light); }
+
+  /* --- Settings sections --- */
+  .settings-section {
+    border-top: 1px solid var(--border-col);
+    padding-top: 14px;
+    margin-top: 14px;
+  }
+  .settings-section:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .settings-section h3 { font-size: 12px; color: var(--text-light); margin: 0 0 8px; }
+  .settings-row { display: flex; gap: 8px; align-items: center; }
+  .settings-row input { flex: 1; min-width: 0; }
+  .settings-row button.small {
+    flex-shrink: 0;
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .settings-row button.small:hover { border-color: var(--accent); }
+  .blocked-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    padding: 6px 0;
+  }
+  .blocked-row button { background: none; border: none; color: var(--danger); font-size: 11.5px; cursor: pointer; }
+  #blocked-empty { font-size: 11.5px; color: var(--muted); }
+  #settings-danger-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 9px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  #settings-danger-btn:hover { background-color: var(--danger); color: var(--text-light); }
+  #notif-toggle-btn {
+    width: 100%;
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 8px;
+    padding: 9px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #notif-toggle-btn:hover { border-color: var(--accent); }
 
   /* --- Chat shell --- */
   #chat-wrap {
-    width: 780px;
-    max-width: 96vw;
-    height: 82vh;
-    max-height: 660px;
+    width: 820px;
+    max-width: 97vw;
+    height: 85vh;
+    max-height: 700px;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-col);
     border-radius: 14px;
@@ -109,7 +181,7 @@
 
   /* --- Sidebar --- */
   #chat-sidebar {
-    width: 230px;
+    width: 240px;
     flex-shrink: 0;
     border-right: 1px solid var(--border-col);
     display: flex;
@@ -120,8 +192,39 @@
     padding: 14px 16px 10px;
     font-size: 12px;
     color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  #sidebar-header .my-name { color: var(--accent); font-weight: 600; }
+  #sidebar-header .my-avatar { flex-shrink: 0; }
+  #sidebar-header .my-name-wrap { min-width: 0; }
+  #sidebar-header .my-name { color: var(--accent); font-weight: 600; display: block; }
+  #sidebar-header .my-status { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .avatar-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background-color: var(--panel-bg-2);
+    border: 1px solid var(--border-col);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .avatar-badge.small { width: 20px; height: 20px; font-size: 10px; }
+  .online-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--good);
+    border: 2px solid var(--panel-bg);
+  }
 
   .nav-item {
     display: flex;
@@ -147,7 +250,7 @@
   #new-dm-row {
     display: flex;
     gap: 6px;
-    padding: 0 16px 10px;
+    padding: 0 16px 8px;
   }
   #new-dm-input {
     flex: 1;
@@ -172,6 +275,7 @@
     flex-shrink: 0;
   }
   #new-dm-btn:hover { border-color: var(--accent); }
+  #new-dm-hint { padding: 0 16px 8px; font-size: 10px; color: var(--muted); }
 
   #thread-list {
     flex: 1;
@@ -209,8 +313,10 @@
   #sidebar-footer {
     padding: 10px 16px;
     border-top: 1px solid var(--border-col);
+    display: flex;
+    gap: 12px;
   }
-  #logout-btn {
+  #sidebar-footer button {
     background: none;
     border: none;
     color: var(--muted);
@@ -218,7 +324,7 @@
     cursor: pointer;
     padding: 0;
   }
-  #logout-btn:hover { color: var(--text-light); }
+  #sidebar-footer button:hover { color: var(--text-light); }
 
   /* --- Main pane --- */
   #chat-main {
@@ -229,13 +335,43 @@
   }
 
   #chat-header {
-    padding: 14px 18px;
+    padding: 12px 18px;
     border-bottom: 1px solid var(--border-col);
     font-size: 13px;
     color: var(--text-light);
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
   }
+  #chat-header-info { min-width: 0; }
   #chat-header .chat-header-sub { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  #dm-search-input {
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 11.5px;
+    outline: none;
+    width: 130px;
+  }
+  #dm-search-input:focus { border-color: var(--accent); }
+  #dm-search-input.hidden { display: none; }
+
+  #pinned-strip {
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--border-col);
+    font-size: 11.5px;
+    color: var(--muted);
+    background-color: var(--panel-bg-2);
+  }
+  #pinned-strip.hidden { display: none; }
+  .pinned-item { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .pinned-item .pinned-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pinned-item button { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; flex-shrink: 0; }
+  .pinned-item button:hover { color: var(--danger); }
 
   #messages {
     flex: 1;
@@ -243,18 +379,23 @@
     padding: 14px 18px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 4px;
   }
   #messages-empty { font-size: 12px; color: var(--muted); margin: auto; text-align: center; }
 
+  .msg-row { display: flex; gap: 8px; align-items: flex-end; margin: 6px 0; }
+  .msg-row.own { flex-direction: row-reverse; }
+  .msg-col { display: flex; flex-direction: column; max-width: 74%; }
+  .msg-row.own .msg-col { align-items: flex-end; }
+
   .msg {
-    max-width: 78%;
     padding: 8px 12px;
     border-radius: 12px;
     background-color: var(--panel-bg-2);
     font-size: 13.5px;
     line-height: 1.4;
     word-wrap: break-word;
+    position: relative;
   }
   .msg .msg-name {
     font-size: 11px;
@@ -262,8 +403,70 @@
     font-weight: 600;
     margin-bottom: 2px;
   }
-  .msg.own { align-self: flex-end; background-color: var(--accent); color: var(--near-black); }
+  .msg .mention { color: var(--accent); font-weight: 600; }
+  .msg .mention-me { background-color: rgba(217, 119, 87, 0.35); border-radius: 4px; padding: 0 2px; }
+  .msg a { color: inherit; text-decoration: underline; }
+  .msg.own { background-color: var(--accent); color: var(--near-black); }
   .msg.own .msg-name { color: var(--near-black); opacity: 0.7; }
+  .msg.deleted { font-style: italic; color: var(--muted); }
+  .msg.own.deleted { color: rgba(20,20,19,0.6); }
+  .msg-meta { font-size: 10px; color: var(--muted); margin-top: 2px; display: flex; gap: 6px; align-items: center; }
+  .msg-row.own .msg-meta { justify-content: flex-end; }
+
+  .msg-controls {
+    display: none;
+    gap: 6px;
+    font-size: 10.5px;
+    margin-top: 2px;
+  }
+  .msg-row:hover .msg-controls { display: flex; }
+  .msg-row.own .msg-controls { justify-content: flex-end; }
+  .msg-controls button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 10.5px; padding: 0; }
+  .msg-controls button:hover { color: var(--text-light); }
+
+  .reactions-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+  .reaction-chip {
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .reaction-chip.mine { border-color: var(--accent); }
+  .reaction-chip:hover { border-color: var(--accent); }
+
+  .emoji-picker {
+    position: absolute;
+    bottom: 100%;
+    margin-bottom: 4px;
+    background-color: var(--panel-bg-2);
+    border: 1px solid var(--border-col);
+    border-radius: 10px;
+    padding: 6px;
+    display: none;
+    gap: 4px;
+    z-index: 50;
+  }
+  .emoji-picker.open { display: flex; }
+  .emoji-picker button {
+    background: none;
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  #typing-indicator {
+    padding: 0 18px;
+    font-size: 11px;
+    color: var(--muted);
+    min-height: 16px;
+    font-style: italic;
+  }
 
   #compose {
     display: flex;
@@ -307,36 +510,100 @@
         <p class="title">What should we call you?</p>
         <input type="text" id="name-input" maxlength="24" autocomplete="off" autofocus placeholder="Your name">
         <input type="password" id="pin-input" maxlength="32" autocomplete="off" placeholder="PIN (3+ characters)">
-        <button id="name-submit">Log In</button>
+        <button class="primary" id="name-submit">Log In</button>
         <p class="modal-error hidden" id="name-error"></p>
-        <p class="hint">The first time you use a name, your PIN claims it — anyone else typing that name later needs the same PIN. Global chat is public; direct messages are only visible to the two of you.</p>
+        <p class="hint">The first time you use a name, your PIN claims it — anyone else typing that name later needs the same PIN. Global chat is public; direct messages are only visible to their participants.</p>
+      </div>
+    </div>
+
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal-box wide" style="position: relative;">
+        <button class="modal-close-x" id="settings-close">✕</button>
+        <p class="title">Settings</p>
+
+        <div class="settings-section">
+          <h3>Profile</h3>
+          <div class="settings-row" style="margin-bottom: 6px;">
+            <input type="text" id="settings-avatar" maxlength="4" placeholder="Avatar (emoji)">
+            <button class="small" id="settings-save-avatar">Save</button>
+          </div>
+          <div class="settings-row">
+            <input type="text" id="settings-status" maxlength="40" placeholder="Status (e.g. 'brb')">
+            <button class="small" id="settings-save-status">Save</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Change PIN</h3>
+          <div class="settings-row" style="margin-bottom: 6px;">
+            <input type="password" id="settings-new-pin" maxlength="32" placeholder="New PIN">
+            <input type="password" id="settings-confirm-pin" maxlength="32" placeholder="Confirm">
+          </div>
+          <button class="small" id="settings-save-pin" style="width: 100%;">Update PIN</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>Notifications</h3>
+          <button id="notif-toggle-btn">Enable browser notifications</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>Blocked</h3>
+          <div class="settings-row" style="margin-bottom: 8px;">
+            <input type="text" id="block-name-input" maxlength="24" placeholder="Name to block">
+            <button class="small" id="block-name-btn">Block</button>
+          </div>
+          <div id="blocked-list"></div>
+          <div id="blocked-empty" class="hidden">Nobody blocked.</div>
+        </div>
+
+        <p class="modal-ok hidden" id="settings-ok"></p>
+        <p class="modal-error hidden" id="settings-error"></p>
+
+        <div class="settings-section">
+          <h3>Danger Zone</h3>
+          <button id="settings-danger-btn">Delete my account</button>
+        </div>
       </div>
     </div>
 
     <div id="chat-wrap" class="hidden">
       <div id="chat-sidebar">
-        <div id="sidebar-header">logged in as <span class="my-name" id="sidebar-my-name"></span></div>
+        <div id="sidebar-header">
+          <div class="avatar-badge my-avatar" id="my-avatar"></div>
+          <div class="my-name-wrap">
+            <span class="my-name" id="sidebar-my-name"></span>
+            <span class="my-status" id="sidebar-my-status"></span>
+          </div>
+        </div>
         <div class="nav-item active" id="nav-global">Global Chat</div>
 
         <div id="dm-section-label">Direct Messages</div>
         <div id="new-dm-row">
-          <input type="text" id="new-dm-input" maxlength="24" placeholder="Message someone...">
+          <input type="text" id="new-dm-input" maxlength="200" placeholder="Message someone...">
           <button id="new-dm-btn">Go</button>
         </div>
+        <div id="new-dm-hint">Comma-separate names for a group.</div>
         <div id="thread-list"></div>
         <div id="threads-empty" class="hidden">No conversations yet.</div>
 
         <div id="sidebar-footer">
+          <button id="settings-btn">⚙ Settings</button>
           <button id="logout-btn">Log out</button>
         </div>
       </div>
 
       <div id="chat-main">
         <div id="chat-header">
-          <div id="chat-header-title">Global Chat</div>
-          <div class="chat-header-sub" id="chat-header-sub">visible to everyone</div>
+          <div id="chat-header-info">
+            <div id="chat-header-title">Global Chat</div>
+            <div class="chat-header-sub" id="chat-header-sub">visible to everyone</div>
+          </div>
+          <input type="text" id="dm-search-input" class="hidden" placeholder="Search...">
         </div>
+        <div id="pinned-strip" class="hidden"></div>
         <div id="messages"></div>
+        <div id="typing-indicator"></div>
         <div id="compose">
           <div id="compose-row">
             <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
@@ -358,9 +625,13 @@
       const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
       const POLL_MS = 3000;
       const THREADS_POLL_MS = 5000;
+      const TYPING_POLL_MS = 2000;
+      const TYPING_PING_MS = 2000;
+      const PRESENCE_PING_MS = 15000;
+      const PROFILE_REFRESH_MS = 15000;
       const REMEMBER_KEY = "chatIdentity"; // localStorage convenience only, not a security boundary
       const SESSION_KEY = "chatSession"; // { token, name } — this is what makes login persist
-      const READ_STATE_KEY = "chatReadState"; // { [partnerLower]: lastReadTs }, for the unread dots
+      const READ_STATE_KEY = "chatReadState"; // { [threadKeyLower]: lastReadTs }, for the unread dots
 
       // ---------- Direct-access guard ----------
       if (sessionStorage.getItem(ACCESS_KEY) !== "chat") {
@@ -375,8 +646,29 @@
       const nameSubmit = document.getElementById('name-submit');
       const nameError = document.getElementById('name-error');
 
+      const settingsModal = document.getElementById('settings-modal');
+      const settingsBtn = document.getElementById('settings-btn');
+      const settingsClose = document.getElementById('settings-close');
+      const settingsAvatar = document.getElementById('settings-avatar');
+      const settingsStatus = document.getElementById('settings-status');
+      const settingsSaveAvatar = document.getElementById('settings-save-avatar');
+      const settingsSaveStatus = document.getElementById('settings-save-status');
+      const settingsNewPin = document.getElementById('settings-new-pin');
+      const settingsConfirmPin = document.getElementById('settings-confirm-pin');
+      const settingsSavePin = document.getElementById('settings-save-pin');
+      const settingsOk = document.getElementById('settings-ok');
+      const settingsError = document.getElementById('settings-error');
+      const settingsDangerBtn = document.getElementById('settings-danger-btn');
+      const notifToggleBtn = document.getElementById('notif-toggle-btn');
+      const blockNameInput = document.getElementById('block-name-input');
+      const blockNameBtn = document.getElementById('block-name-btn');
+      const blockedList = document.getElementById('blocked-list');
+      const blockedEmpty = document.getElementById('blocked-empty');
+
       const chatWrap = document.getElementById('chat-wrap');
+      const myAvatarEl = document.getElementById('my-avatar');
       const sidebarMyName = document.getElementById('sidebar-my-name');
+      const sidebarMyStatus = document.getElementById('sidebar-my-status');
       const navGlobal = document.getElementById('nav-global');
       const newDmInput = document.getElementById('new-dm-input');
       const newDmBtn = document.getElementById('new-dm-btn');
@@ -386,26 +678,47 @@
 
       const chatHeaderTitle = document.getElementById('chat-header-title');
       const chatHeaderSub = document.getElementById('chat-header-sub');
+      const dmSearchInput = document.getElementById('dm-search-input');
+      const pinnedStrip = document.getElementById('pinned-strip');
       const messagesEl = document.getElementById('messages');
+      const typingIndicator = document.getElementById('typing-indicator');
       const chatInput = document.getElementById('chat-input');
       const sendBtn = document.getElementById('send-btn');
       const composeStatus = document.getElementById('compose-status');
 
+      const REACTION_CHOICES = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+
       let sessionToken = '';
       let myName = '';
       let currentView = 'global'; // 'global' | 'dm'
-      let currentPartner = '';
+      let currentConvId = '';
+      let currentOthers = []; // other participants in the current DM, for display/search/mentions
+      let lastMessages = []; // raw messages for the active view, used by search
+      let lastReads = {};
       let pollTimer = null;
       let threadsPollTimer = null;
-      let lastRenderedKey = ''; // guards against re-rendering identical message lists
+      let typingPollTimer = null;
+      let typingPingedAt = 0;
+      let presencePingTimer = null;
+      let profileRefreshTimer = null;
+      let latestThreads = [];
+      let blockedNames = [];
+      const profileCache = {}; // lowerName -> { avatar, status }
+      const presenceCache = {}; // lowerName -> bool
+      let notifiedIds = {}; // messageId -> true, so we don't double-notify
 
-      function readReadState() {
-        try { return JSON.parse(localStorage.getItem(READ_STATE_KEY) || '{}'); } catch (e) { return {}; }
+      // ---------- Small localStorage helpers ----------
+      function readJSON(key, fallback) {
+        try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; } catch (e) { return fallback; }
       }
-      function markRead(partner) {
+      function writeJSON(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+      }
+      function readReadState() { return readJSON(READ_STATE_KEY, {}); }
+      function markThreadRead(convId) {
         const state = readReadState();
-        state[partner.toLowerCase()] = Date.now();
-        try { localStorage.setItem(READ_STATE_KEY, JSON.stringify(state)); } catch (e) {}
+        state[convId] = Date.now();
+        writeJSON(READ_STATE_KEY, state);
       }
 
       function showNameError(msg) {
@@ -413,9 +726,59 @@
         nameError.classList.remove('hidden');
       }
 
+      // ---------- Rich text rendering (safe — no innerHTML on user text) ----------
+      function renderRichText(container, text) {
+        container.innerHTML = '';
+        if (text == null) return;
+        const pattern = /(https?:\/\/[^\s<]+[^\s<.,;:!?)'"\]])|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(@[a-zA-Z0-9_]{1,24})/g;
+        let lastIndex = 0;
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+          if (match.index > lastIndex) {
+            container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+          }
+          if (match[1]) {
+            const a = document.createElement('a');
+            a.href = match[1];
+            a.textContent = match[1];
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            container.appendChild(a);
+          } else if (match[2]) {
+            const strong = document.createElement('strong');
+            strong.textContent = match[2].slice(2, -2);
+            container.appendChild(strong);
+          } else if (match[3]) {
+            const em = document.createElement('em');
+            em.textContent = match[3].slice(1, -1);
+            container.appendChild(em);
+          } else if (match[4]) {
+            const span = document.createElement('span');
+            const isMe = match[4].slice(1).toLowerCase() === myName.toLowerCase();
+            span.className = 'mention' + (isMe ? ' mention-me' : '');
+            span.textContent = match[4];
+            container.appendChild(span);
+          }
+          lastIndex = pattern.lastIndex;
+        }
+        if (lastIndex < text.length) {
+          container.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+      }
+
+      function mentionsMe(text) {
+        if (!text) return false;
+        const re = /@([a-zA-Z0-9_]{1,24})/g;
+        let m;
+        while ((m = re.exec(text)) !== null) {
+          if (m[1].toLowerCase() === myName.toLowerCase()) return true;
+        }
+        return false;
+      }
+
       // ---------- Login ----------
       try {
-        const remembered = JSON.parse(localStorage.getItem(REMEMBER_KEY) || 'null');
+        const remembered = readJSON(REMEMBER_KEY, null);
         if (remembered && remembered.name) nameInput.value = remembered.name;
         if (remembered && remembered.pin) pinInput.value = remembered.pin;
       } catch (e) {}
@@ -441,8 +804,8 @@
             return data;
           });
         }).then(function (data) {
-          try { localStorage.setItem(REMEMBER_KEY, JSON.stringify({ name: val, pin: pinVal })); } catch (e) {}
-          try { localStorage.setItem(SESSION_KEY, JSON.stringify({ token: data.token, name: data.name })); } catch (e) {}
+          writeJSON(REMEMBER_KEY, { name: val, pin: pinVal });
+          writeJSON(SESSION_KEY, { token: data.token, name: data.name });
           enterChat(data.token, data.name);
         }).catch(function (err) {
           showNameError(err.message || 'Could not log in.');
@@ -459,8 +822,7 @@
       });
 
       function tryAutoLogin() {
-        let saved = null;
-        try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) {}
+        const saved = readJSON(SESSION_KEY, null);
         if (!saved || !saved.token || !saved.name) { setTimeout(function () { nameInput.focus(); }, 30); return; }
         fetch(API_BASE + '/api/chat/session', {
           headers: { 'X-Chat-Session': saved.token }
@@ -480,6 +842,27 @@
         window.location.reload();
       });
 
+      // ---------- API helper ----------
+      function api(path, opts) {
+        opts = opts || {};
+        const headers = Object.assign({}, opts.headers || {}, { 'X-Chat-Session': sessionToken });
+        if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+        return fetch(API_BASE + path, {
+          method: opts.method || 'GET',
+          headers: headers,
+          body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) {
+              const err = new Error(data.error || ('Request failed: ' + r.status));
+              err.status = r.status;
+              throw err;
+            }
+            return data;
+          });
+        });
+      }
+
       // ---------- Entering the chat ----------
       function enterChat(token, name) {
         sessionToken = token;
@@ -489,48 +872,207 @@
         chatWrap.classList.remove('hidden');
         chatInput.focus();
 
+        loadOwnProfile();
+        loadBlocks();
+        setupNotifButton();
+
         fetchThreads();
         threadsPollTimer = setInterval(fetchThreads, THREADS_POLL_MS);
+
+        api('/api/chat/presence', { method: 'POST' }).catch(function () {});
+        presencePingTimer = setInterval(function () {
+          api('/api/chat/presence', { method: 'POST' }).catch(function () {});
+        }, PRESENCE_PING_MS);
+
+        profileRefreshTimer = setInterval(refreshVisibleProfiles, PROFILE_REFRESH_MS);
+
         switchToGlobal();
       }
 
+      function loadOwnProfile() {
+        api('/api/chat/profile?names=' + encodeURIComponent(myName)).then(function (data) {
+          const mine = data[myName];
+          if (mine) {
+            myAvatarEl.textContent = mine.avatar || myName.charAt(0).toUpperCase();
+            sidebarMyStatus.textContent = mine.status || '';
+            settingsAvatar.value = mine.avatar || '';
+            settingsStatus.value = mine.status || '';
+          } else {
+            myAvatarEl.textContent = myName.charAt(0).toUpperCase();
+          }
+        }).catch(function () {});
+      }
+
+      function loadBlocks() {
+        api('/api/chat/blocks').then(function (list) {
+          blockedNames = Array.isArray(list) ? list : [];
+          renderBlockedList();
+        }).catch(function () {});
+      }
+
+      function renderBlockedList() {
+        blockedList.innerHTML = '';
+        blockedEmpty.classList.toggle('hidden', blockedNames.length > 0);
+        blockedNames.forEach(function (n) {
+          const row = document.createElement('div');
+          row.className = 'blocked-row';
+          const label = document.createElement('span');
+          label.textContent = n;
+          const unblockBtn = document.createElement('button');
+          unblockBtn.textContent = 'Unblock';
+          unblockBtn.addEventListener('click', function () {
+            api('/api/chat/unblock', { method: 'POST', body: { name: n } }).then(loadBlocks).catch(function () {});
+          });
+          row.appendChild(label);
+          row.appendChild(unblockBtn);
+          blockedList.appendChild(row);
+        });
+      }
+
+      blockNameBtn.addEventListener('click', function () {
+        const target = blockNameInput.value.trim();
+        if (!target) return;
+        api('/api/chat/block', { method: 'POST', body: { name: target } }).then(function () {
+          blockNameInput.value = '';
+          loadBlocks();
+        }).catch(function () {});
+      });
+
+      // ---------- Settings modal ----------
+      function openSettings() {
+        settingsOk.classList.add('hidden');
+        settingsError.classList.add('hidden');
+        settingsModal.classList.remove('hidden');
+      }
+      settingsBtn.addEventListener('click', openSettings);
+      settingsClose.addEventListener('click', function () { settingsModal.classList.add('hidden'); });
+
+      function showSettingsOk(msg) {
+        settingsError.classList.add('hidden');
+        settingsOk.textContent = msg;
+        settingsOk.classList.remove('hidden');
+        setTimeout(function () { settingsOk.classList.add('hidden'); }, 2000);
+      }
+      function showSettingsError(msg) {
+        settingsOk.classList.add('hidden');
+        settingsError.textContent = msg;
+        settingsError.classList.remove('hidden');
+      }
+
+      settingsSaveAvatar.addEventListener('click', function () {
+        api('/api/chat/profile', { method: 'POST', body: { avatar: settingsAvatar.value, status: settingsStatus.value } })
+          .then(function () { showSettingsOk('Avatar saved.'); loadOwnProfile(); })
+          .catch(function (err) { showSettingsError(err.message); });
+      });
+      settingsSaveStatus.addEventListener('click', function () {
+        api('/api/chat/profile', { method: 'POST', body: { avatar: settingsAvatar.value, status: settingsStatus.value } })
+          .then(function () { showSettingsOk('Status saved.'); loadOwnProfile(); })
+          .catch(function (err) { showSettingsError(err.message); });
+      });
+
+      settingsSavePin.addEventListener('click', function () {
+        const a = settingsNewPin.value;
+        const b = settingsConfirmPin.value;
+        if (a.length < 3) { showSettingsError('PIN needs to be at least 3 characters.'); return; }
+        if (a !== b) { showSettingsError("PINs don't match."); return; }
+        api('/api/chat/change-pin', { method: 'POST', body: { newPin: a } }).then(function () {
+          settingsNewPin.value = '';
+          settingsConfirmPin.value = '';
+          writeJSON(REMEMBER_KEY, { name: myName, pin: a });
+          showSettingsOk('PIN updated.');
+        }).catch(function (err) { showSettingsError(err.message); });
+      });
+
+      settingsDangerBtn.addEventListener('click', function () {
+        if (!window.confirm('Delete your account "' + myName + '"? This frees the name for anyone to claim and can’t be undone.')) return;
+        if (!window.confirm('Really sure? Type OK in the next box to confirm.')) return;
+        api('/api/chat/release-me', { method: 'POST' }).then(function () {
+          try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+          window.location.reload();
+        }).catch(function (err) { showSettingsError(err.message); });
+      });
+
+      // ---------- Browser notifications ----------
+      function setupNotifButton() {
+        if (!('Notification' in window)) {
+          notifToggleBtn.textContent = 'Notifications not supported here';
+          notifToggleBtn.disabled = true;
+          return;
+        }
+        refreshNotifButton();
+      }
+      function refreshNotifButton() {
+        if (Notification.permission === 'granted') {
+          notifToggleBtn.textContent = 'Notifications enabled';
+        } else if (Notification.permission === 'denied') {
+          notifToggleBtn.textContent = 'Blocked in browser settings';
+        } else {
+          notifToggleBtn.textContent = 'Enable browser notifications';
+        }
+      }
+      notifToggleBtn.addEventListener('click', function () {
+        if (!('Notification' in window) || Notification.permission === 'denied') return;
+        Notification.requestPermission().then(refreshNotifButton);
+      });
+      function notify(title, body) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (!document.hidden) return;
+        try { new Notification(title, { body: body }); } catch (e) {}
+      }
+
       // ---------- View switching ----------
+      function stopTypingPoll() {
+        if (typingPollTimer) { clearInterval(typingPollTimer); typingPollTimer = null; }
+        typingIndicator.textContent = '';
+      }
+
       function switchToGlobal() {
         currentView = 'global';
-        currentPartner = '';
+        currentConvId = '';
+        currentOthers = [];
         navGlobal.classList.add('active');
         chatHeaderTitle.textContent = 'Global Chat';
         chatHeaderSub.textContent = 'visible to everyone';
-        lastRenderedKey = '';
+        dmSearchInput.classList.add('hidden');
+        dmSearchInput.value = '';
         messagesEl.innerHTML = '';
         renderThreadListActiveState();
+        fetchPinned();
+        pinnedStrip.classList.remove('hidden');
         restartPolling();
+        stopTypingPoll();
+        typingPollTimer = setInterval(pollTyping, TYPING_POLL_MS);
       }
 
-      function switchToDm(partner) {
+      function switchToDm(convId, participants) {
         currentView = 'dm';
-        currentPartner = partner;
+        currentConvId = convId;
+        currentOthers = (participants || []).filter(function (p) { return p.toLowerCase() !== myName.toLowerCase(); });
         navGlobal.classList.remove('active');
-        chatHeaderTitle.textContent = partner;
-        chatHeaderSub.textContent = 'only visible to the two of you';
-        lastRenderedKey = '';
+        chatHeaderTitle.textContent = currentOthers.join(', ') || '(conversation)';
+        chatHeaderSub.textContent = currentOthers.length > 1 ? 'group · only visible to participants' : 'only visible to the two of you';
+        dmSearchInput.classList.remove('hidden');
+        dmSearchInput.value = '';
+        pinnedStrip.classList.add('hidden');
         messagesEl.innerHTML = '';
-        markRead(partner);
+        markThreadRead(convId);
         renderThreadListActiveState();
         restartPolling();
+        stopTypingPoll();
+        typingPollTimer = setInterval(pollTyping, TYPING_POLL_MS);
       }
 
       navGlobal.addEventListener('click', switchToGlobal);
 
       function openNewDm() {
-        const target = newDmInput.value.trim().slice(0, 24);
-        if (!target) return;
-        if (target.toLowerCase() === myName.toLowerCase()) {
-          composeStatus.textContent = "That's you — can't DM yourself.";
-          return;
-        }
+        const raw = newDmInput.value.trim();
+        if (!raw) return;
+        const participants = raw.split(',').map(function (n) { return n.trim(); }).filter(Boolean);
+        if (!participants.length) return;
         newDmInput.value = '';
-        switchToDm(target);
+        api('/api/dm/start', { method: 'POST', body: { participants: participants } })
+          .then(function (data) { switchToDm(data.convId, data.participants); fetchThreads(); })
+          .catch(function (err) { composeStatus.textContent = err.message || 'Could not start conversation.'; });
       }
       newDmBtn.addEventListener('click', openNewDm);
       newDmInput.addEventListener('keydown', function (e) {
@@ -544,60 +1086,240 @@
         pollTimer = setInterval(fetchActiveMessages, POLL_MS);
       }
 
+      function fetchPinned() {
+        api('/api/chat/pinned').then(renderPinned).catch(function () {});
+      }
+      function renderPinned(pinned) {
+        if (currentView !== 'global') return;
+        pinnedStrip.innerHTML = '';
+        if (!pinned.length) {
+          pinnedStrip.innerHTML = '<span style="opacity:.7;">No pinned messages.</span>';
+          return;
+        }
+        pinned.forEach(function (p) {
+          const row = document.createElement('div');
+          row.className = 'pinned-item';
+          const text = document.createElement('span');
+          text.className = 'pinned-text';
+          text.textContent = '📌 ' + p.name + ': ' + p.text;
+          const unpinBtn = document.createElement('button');
+          unpinBtn.textContent = 'Unpin';
+          unpinBtn.addEventListener('click', function () { withEditKey(function (key) { unpinMessage(p.id, key); }); });
+          row.appendChild(text);
+          row.appendChild(unpinBtn);
+          pinnedStrip.appendChild(row);
+        });
+      }
+
+      let cachedEditKey = '';
+      function withEditKey(fn) {
+        if (cachedEditKey) { fn(cachedEditKey); return; }
+        const key = window.prompt('Admin password, to pin/unpin:');
+        if (key) { cachedEditKey = key; fn(key); }
+      }
+      function pinMessage(messageId, key) {
+        fetch(API_BASE + '/api/chat/pin', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Edit-Key': key },
+          body: JSON.stringify({ messageId: messageId })
+        }).then(function (r) {
+          if (!r.ok) { cachedEditKey = ''; composeStatus.textContent = 'Wrong admin password.'; return; }
+          fetchPinned();
+        });
+      }
+      function unpinMessage(messageId, key) {
+        fetch(API_BASE + '/api/chat/unpin', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Edit-Key': key },
+          body: JSON.stringify({ messageId: messageId })
+        }).then(function (r) {
+          if (!r.ok) { cachedEditKey = ''; composeStatus.textContent = 'Wrong admin password.'; return; }
+          fetchPinned();
+        });
+      }
+
       function fetchActiveMessages() {
         if (currentView === 'global') {
           fetch(API_BASE + '/api/chat')
             .then(function (r) { return r.json(); })
             .then(function (data) {
-              renderMessages((Array.isArray(data) ? data : []).map(function (m) {
-                return { who: m.name, text: m.text, ts: m.ts };
-              }), 'global');
+              const items = Array.isArray(data) ? data : [];
+              handleNewMessageNotifications(items, 'global');
+              lastMessages = items;
+              lastReads = {};
+              renderMessages(applySearchFilter(items));
             })
             .catch(function (err) { console.error('Failed to load chat:', err); });
         } else {
-          fetch(API_BASE + '/api/dm/messages?with=' + encodeURIComponent(currentPartner), {
-            headers: { 'X-Chat-Session': sessionToken }
-          })
-            .then(function (r) { return r.json(); })
+          api('/api/dm/messages?convId=' + encodeURIComponent(currentConvId))
             .then(function (data) {
-              renderMessages((Array.isArray(data) ? data : []).map(function (m) {
-                return { who: m.from, text: m.text, ts: m.ts };
-              }), 'dm:' + currentPartner);
-              markRead(currentPartner);
+              const items = Array.isArray(data.messages) ? data.messages : [];
+              handleNewMessageNotifications(items, 'dm');
+              lastMessages = items;
+              lastReads = data.reads || {};
+              renderMessages(applySearchFilter(items));
+              api('/api/dm/read', { method: 'POST', body: { convId: currentConvId } }).catch(function () {});
+              markThreadRead(currentConvId);
             })
             .catch(function (err) { console.error('Failed to load DM:', err); });
         }
+        refreshVisibleProfiles();
       }
 
-      function renderMessages(items, renderKey) {
-        const bucketKey = renderKey + ':' + items.length;
-        if (bucketKey === lastRenderedKey) return;
-        lastRenderedKey = bucketKey;
+      function handleNewMessageNotifications(items, scope) {
+        items.forEach(function (m) {
+          const who = scope === 'global' ? m.name : m.from;
+          if (who === myName || notifiedIds[m.id]) return;
+          notifiedIds[m.id] = true;
+          if (m.deleted) return;
+          if (scope === 'dm') {
+            notify(who, m.text);
+          } else if (mentionsMe(m.text)) {
+            notify(who + ' mentioned you', m.text);
+          }
+        });
+      }
 
-        const wasAtBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 40;
+      function applySearchFilter(items) {
+        if (currentView !== 'dm') return items;
+        const q = dmSearchInput.value.trim().toLowerCase();
+        if (!q) return items;
+        return items.filter(function (m) { return !m.deleted && (m.text || '').toLowerCase().indexOf(q) !== -1; });
+      }
+      dmSearchInput.addEventListener('input', function () {
+        renderMessages(applySearchFilter(lastMessages));
+      });
 
+      function renderMessages(items) {
+        const wasAtBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
         messagesEl.innerHTML = '';
-        if (items.length === 0) {
+
+        if (!items.length) {
           const empty = document.createElement('div');
           empty.id = 'messages-empty';
           empty.textContent = currentView === 'global' ? 'No messages yet — say something.' : 'No messages yet — say hi.';
           messagesEl.appendChild(empty);
           return;
         }
-        items.forEach(function (m) {
+
+        let lastOwnIndex = -1;
+        items.forEach(function (m, i) {
+          const who = currentView === 'global' ? m.name : m.from;
+          if (who === myName) lastOwnIndex = i;
+        });
+
+        items.forEach(function (m, i) {
+          const who = currentView === 'global' ? m.name : m.from;
+          const mine = who === myName;
+
+          if (currentView === 'global' && blockedNames.indexOf(who.toLowerCase()) !== -1 && !mine) return;
+
+          const row = document.createElement('div');
+          row.className = 'msg-row' + (mine ? ' own' : '');
+
+          const avatar = document.createElement('div');
+          avatar.className = 'avatar-badge small';
+          const prof = profileCache[who.toLowerCase()];
+          avatar.textContent = (prof && prof.avatar) ? prof.avatar : who.charAt(0).toUpperCase();
+          if (presenceCache[who.toLowerCase()]) {
+            const dot = document.createElement('div');
+            dot.className = 'online-dot';
+            avatar.appendChild(dot);
+          }
+
+          const col = document.createElement('div');
+          col.className = 'msg-col';
+
           const bubble = document.createElement('div');
-          bubble.className = 'msg' + (m.who === myName ? ' own' : '');
+          bubble.className = 'msg' + (mine ? ' own' : '') + (m.deleted ? ' deleted' : '');
 
           const nameEl = document.createElement('div');
           nameEl.className = 'msg-name';
-          nameEl.textContent = m.who; // textContent only — never render chat content as HTML
+          nameEl.textContent = who;
+          bubble.appendChild(nameEl);
 
           const textEl = document.createElement('div');
-          textEl.textContent = m.text; // same here — this is untrusted, open input
-
-          bubble.appendChild(nameEl);
+          if (m.deleted) {
+            textEl.textContent = 'Message deleted';
+          } else {
+            renderRichText(textEl, m.text);
+          }
           bubble.appendChild(textEl);
-          messagesEl.appendChild(bubble);
+
+          if (!m.deleted && m.reactions && Object.keys(m.reactions).length) {
+            const reactionsRow = document.createElement('div');
+            reactionsRow.className = 'reactions-row';
+            Object.keys(m.reactions).forEach(function (emoji) {
+              const names = m.reactions[emoji];
+              const chip = document.createElement('button');
+              chip.type = 'button';
+              chip.className = 'reaction-chip' + (names.indexOf(myName) !== -1 ? ' mine' : '');
+              chip.textContent = emoji + ' ' + names.length;
+              chip.title = names.join(', ');
+              chip.addEventListener('click', function () { toggleReaction(m.id, emoji); });
+              reactionsRow.appendChild(chip);
+            });
+            bubble.appendChild(reactionsRow);
+          }
+
+          col.appendChild(bubble);
+
+          if (!m.deleted) {
+            const meta = document.createElement('div');
+            meta.className = 'msg-meta';
+            const time = new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            meta.textContent = time + (m.edited ? ' · edited' : '');
+            col.appendChild(meta);
+
+            if (currentView === 'dm' && mine && i === lastOwnIndex) {
+              const seenByOthers = currentOthers.every(function (o) { return (lastReads[o] || 0) >= m.ts; });
+              if (seenByOthers) {
+                const seen = document.createElement('div');
+                seen.className = 'msg-meta';
+                seen.textContent = 'Seen';
+                col.appendChild(seen);
+              }
+            }
+
+            const controls = document.createElement('div');
+            controls.className = 'msg-controls';
+
+            const reactBtn = document.createElement('button');
+            reactBtn.textContent = 'React';
+            const picker = document.createElement('div');
+            picker.className = 'emoji-picker';
+            REACTION_CHOICES.forEach(function (emoji) {
+              const eb = document.createElement('button');
+              eb.type = 'button';
+              eb.textContent = emoji;
+              eb.addEventListener('click', function () { toggleReaction(m.id, emoji); picker.classList.remove('open'); });
+              picker.appendChild(eb);
+            });
+            reactBtn.addEventListener('click', function () { picker.classList.toggle('open'); });
+            bubble.appendChild(picker);
+            controls.appendChild(reactBtn);
+
+            if (mine) {
+              const editBtn = document.createElement('button');
+              editBtn.textContent = 'Edit';
+              editBtn.addEventListener('click', function () { startEdit(m); });
+              controls.appendChild(editBtn);
+
+              const delBtn = document.createElement('button');
+              delBtn.textContent = 'Delete';
+              delBtn.addEventListener('click', function () { deleteMessage(m.id); });
+              controls.appendChild(delBtn);
+            } else if (currentView === 'global') {
+              const pinBtn = document.createElement('button');
+              pinBtn.textContent = 'Pin';
+              pinBtn.addEventListener('click', function () { withEditKey(function (key) { pinMessage(m.id, key); }); });
+              controls.appendChild(pinBtn);
+            }
+
+            col.appendChild(controls);
+          }
+
+          row.appendChild(avatar);
+          row.appendChild(col);
+          messagesEl.appendChild(row);
         });
 
         if (wasAtBottom) {
@@ -605,16 +1327,76 @@
         }
       }
 
-      // ---------- DM thread list ----------
-      function fetchThreads() {
-        fetch(API_BASE + '/api/dm/threads', {
-          headers: { 'X-Chat-Session': sessionToken }
-        }).then(function (r) { return r.json(); })
-          .then(function (data) { renderThreads(Array.isArray(data) ? data : []); })
-          .catch(function (err) { console.error('Failed to load threads:', err); });
+      function toggleReaction(messageId, emoji) {
+        const path = currentView === 'global' ? '/api/chat/react' : '/api/dm/react';
+        const body = currentView === 'global' ? { messageId: messageId, emoji: emoji } : { convId: currentConvId, messageId: messageId, emoji: emoji };
+        api(path, { method: 'POST', body: body }).then(fetchActiveMessages).catch(function () {});
       }
 
-      let latestThreads = [];
+      function startEdit(m) {
+        const next = window.prompt('Edit message:', m.text || '');
+        if (next === null) return;
+        const trimmed = next.trim();
+        if (!trimmed) return;
+        const path = currentView === 'global' ? '/api/chat/edit' : '/api/dm/edit';
+        const body = currentView === 'global' ? { messageId: m.id, text: trimmed } : { convId: currentConvId, messageId: m.id, text: trimmed };
+        api(path, { method: 'POST', body: body }).then(fetchActiveMessages).catch(function (err) { composeStatus.textContent = err.message; });
+      }
+
+      function deleteMessage(messageId) {
+        if (!window.confirm('Delete this message?')) return;
+        const path = currentView === 'global' ? '/api/chat/delete' : '/api/dm/delete';
+        const body = currentView === 'global' ? { messageId: messageId } : { convId: currentConvId, messageId: messageId };
+        api(path, { method: 'POST', body: body }).then(fetchActiveMessages).catch(function (err) { composeStatus.textContent = err.message; });
+      }
+
+      // ---------- Typing indicators ----------
+      function pingTyping() {
+        const now = Date.now();
+        if (now - typingPingedAt < TYPING_PING_MS) return;
+        typingPingedAt = now;
+        const body = currentView === 'global' ? { scope: 'global' } : { scope: 'dm', convId: currentConvId };
+        api('/api/typing', { method: 'POST', body: body }).catch(function () {});
+      }
+      function pollTyping() {
+        const qs = currentView === 'global' ? 'scope=global' : 'scope=dm&convId=' + encodeURIComponent(currentConvId);
+        api('/api/typing?' + qs).then(function (typers) {
+          if (!Array.isArray(typers) || !typers.length) { typingIndicator.textContent = ''; return; }
+          const unique = typers.filter(function (v, i) { return typers.indexOf(v) === i; });
+          typingIndicator.textContent = unique.length === 1
+            ? unique[0] + ' is typing…'
+            : unique.join(', ') + ' are typing…';
+        }).catch(function () {});
+      }
+      chatInput.addEventListener('input', pingTyping);
+
+      // ---------- Presence + profile enrichment ----------
+      function visibleNames() {
+        const names = {};
+        lastMessages.forEach(function (m) { names[(currentView === 'global' ? m.name : m.from)] = true; });
+        currentOthers.forEach(function (n) { names[n] = true; });
+        latestThreads.forEach(function (t) { (t.participants || []).forEach(function (p) { if (p !== myName) names[p] = true; }); });
+        return Object.keys(names);
+      }
+      function refreshVisibleProfiles() {
+        const names = visibleNames();
+        if (!names.length) return;
+        api('/api/chat/profile?names=' + encodeURIComponent(names.join(','))).then(function (data) {
+          Object.keys(data).forEach(function (n) {
+            if (data[n]) profileCache[n.toLowerCase()] = data[n];
+          });
+        }).catch(function () {});
+        api('/api/chat/presence?names=' + encodeURIComponent(names.join(','))).then(function (data) {
+          Object.keys(data).forEach(function (n) { presenceCache[n.toLowerCase()] = data[n]; });
+          renderThreadListActiveState();
+        }).catch(function () {});
+      }
+
+      // ---------- DM thread list ----------
+      function fetchThreads() {
+        api('/api/dm/threads').then(function (data) { renderThreads(Array.isArray(data) ? data : []); }).catch(function () {});
+      }
+
       function renderThreads(threads) {
         latestThreads = threads;
         threadList.innerHTML = '';
@@ -622,27 +1404,41 @@
         const readState = readReadState();
 
         threads.forEach(function (t) {
+          const others = (t.participants || []).filter(function (p) { return p.toLowerCase() !== myName.toLowerCase(); });
+          const label = others.join(', ') || '(you)';
+
           const item = document.createElement('div');
-          item.className = 'thread-item' + (currentView === 'dm' && currentPartner.toLowerCase() === t.partner.toLowerCase() ? ' active' : '');
-          item.addEventListener('click', function () { switchToDm(t.partner); });
+          item.className = 'thread-item' + (currentView === 'dm' && currentConvId === t.convId ? ' active' : '');
+          item.addEventListener('click', function () { switchToDm(t.convId, t.participants); });
+
+          const avatar = document.createElement('div');
+          avatar.className = 'avatar-badge small';
+          const prof = others.length === 1 ? profileCache[others[0].toLowerCase()] : null;
+          avatar.textContent = prof && prof.avatar ? prof.avatar : label.charAt(0).toUpperCase();
+          if (others.length === 1 && presenceCache[others[0].toLowerCase()]) {
+            const dot = document.createElement('div');
+            dot.className = 'online-dot';
+            avatar.appendChild(dot);
+          }
 
           const info = document.createElement('div');
           info.className = 'thread-info';
 
           const nameEl = document.createElement('div');
           nameEl.className = 'thread-name';
-          nameEl.textContent = t.partner;
+          nameEl.textContent = label;
 
           const previewEl = document.createElement('div');
           previewEl.className = 'thread-preview';
           const prefix = t.lastFrom === myName ? 'You: ' : '';
-          previewEl.textContent = prefix + (t.lastText || '');
+          previewEl.textContent = prefix + (t.lastText == null ? '(deleted message)' : t.lastText);
 
           info.appendChild(nameEl);
           info.appendChild(previewEl);
+          item.appendChild(avatar);
           item.appendChild(info);
 
-          const isUnread = t.lastFrom !== myName && t.lastTs > (readState[t.partner.toLowerCase()] || 0);
+          const isUnread = t.lastFrom !== myName && t.lastTs > (readState[t.convId] || 0);
           if (isUnread) {
             const dot = document.createElement('div');
             dot.className = 'unread-dot';
@@ -664,29 +1460,14 @@
         composeStatus.textContent = '';
 
         const isDm = currentView === 'dm';
-        const url = isDm ? '/api/dm/send' : '/api/chat';
-        const body = isDm ? { to: currentPartner, text: text } : { text: text };
+        const path = isDm ? '/api/dm/send' : '/api/chat';
+        const body = isDm ? { convId: currentConvId, text: text } : { text: text };
 
-        fetch(API_BASE + url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Chat-Session': sessionToken },
-          body: JSON.stringify(body)
-        }).then(function (r) {
-          return r.json().catch(function () { return {}; }).then(function (data) {
-            if (!r.ok) {
-              const err = new Error(data.error || ('Send failed: ' + r.status));
-              err.status = r.status;
-              throw err;
-            }
-            return data;
-          });
-        }).then(function () {
+        api(path, { method: 'POST', body: body }).then(function () {
           chatInput.value = '';
-          lastRenderedKey = ''; // force a redraw even if the count matches
           fetchActiveMessages();
           if (isDm) fetchThreads();
         }).catch(function (err) {
-          console.error(err);
           if (err.status === 401) {
             try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
             window.location.reload();

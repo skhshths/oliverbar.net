@@ -24,17 +24,20 @@ All under [`site/`](./site):
 
 - **`index.html`** — the black entry screen described above.
 - **`x913j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Admin**. Password-gated (client-side check; see Security below). Once unlocked, a sidebar splits everything into tabs instead of one long scroll:
+  - **Dashboard** — the default tab: lifetime global/DM message counts, total claimed accounts, the single most-used trigger, and how many tabs are open right now, all in one glance.
   - **Site & Triggers** — the Interactive / Portfolio / Chat triggers as cards, toggle + rename each. The Admin card itself is grayed out and can't be edited.
   - **Custom Redirects** — your own trigger words pointing to any path on this site, a self-serve Custom Page, or any external URL.
   - **Custom Pages** — paste raw HTML and it's hosted directly by the Worker at a generated URL (no Cloudflare Pages redeploy needed). Slugs can be nested paths (e.g. `test/about-us`) so pages can link to each other. The generated link only works when reached through a trigger word — see below.
-  - **Chat & Accounts** — the "Clear All Chat Messages" button, plus a list of every chat name that's been claimed with a PIN (see Global Chat below), with a Release button per name.
+  - **Chat & Accounts** — the "Clear All Chat Messages" button (also clears pinned messages), plus a list of every chat name that's been claimed with a PIN, each with a Release button.
   - **Experimental** — extra, lower-stakes stuff: a live count of how many tabs currently have the site open, and a usage count per trigger word. More may show up here over time.
 - **`x923j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Interactive**. A drag/resize box builder with a per-box CSS editor, gated by the same password. Layout is saved to the Worker so every visitor sees the same canvas.
 - **`x933j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Portfolio**. Blank black page. `Enter` sends you home.
-- **`x943j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Chat**. Log in with a display name and PIN — the first login under a given name claims it with that PIN, every later login must match. No admin password needed. Once logged in:
-  - **Global Chat** — visible to everyone, polls every 3 seconds, same as before.
-  - **Direct Messages** — a sidebar lists your conversations (name, last message preview, an unread dot), with a "Message someone..." box to start a new one. Only the two people in a conversation can read it. Full history is there every time you log back in, on any device, as long as you know the name and PIN — like iMessage, minus the phone number.
-  - A saved login persists for a week (`localStorage`), so reopening the page skips straight back in without re-entering the PIN. A quiet "Log out" link in the sidebar clears that if the device isn't just yours.
+- **`x943j1029jx1209x0f28j4f23fq28jc2q938jf.html`** — **Chat**. Log in with a display name and PIN — the first login under a given name claims it with that PIN, every later login must match. No admin password needed. Once logged in, a sidebar splits Global Chat from Direct Messages:
+  - **Global Chat** — visible to everyone, polls every 3 seconds. Messages support **@mentions** (highlighted, and trigger a browser notification if you have that tab hidden), **`**bold**`/`*italic*`** and auto-linked URLs, **emoji reactions**, **edit/delete** on your own messages, and admin-set **pinned messages** shown in a strip at the top.
+  - **Direct Messages** — a sidebar lists your conversations (participant names, last message preview, an unread dot), with a "Message someone..." box to start one — comma-separate names to start a group. Only participants can read a conversation. Full history is there every time you log back in, on any device, as long as you know the name and PIN — like iMessage, minus the phone number. DMs get everything global chat does, plus **read receipts** ("Seen" once everyone else has caught up) and **search** within the open conversation.
+  - **Typing indicators** show under the message list when someone else is composing, in whichever view you're both in. An **online dot** appears on a name's avatar when they're active.
+  - **Settings** (⚙ in the sidebar) — set an emoji avatar and a short status line (both visible to everyone, like the display name itself), change your PIN, block/unblock names (blocking stops their 1:1 DMs to you server-side, and hides their global chat messages from your view), turn on browser notifications, or delete your own account entirely.
+  - A saved login persists for a week (`localStorage`), so reopening the page skips straight back in without re-entering the PIN. A "Log out" link in the sidebar clears that if the device isn't just yours.
 
 The four hidden pages are named with long random-looking filenames on purpose — the only supported way in is through the correct trigger word on `index.html`, not by guessing or browsing a directory listing.
 
@@ -64,8 +67,10 @@ Every password check on this site (the editor, the admin panel) is plain client-
 Other things worth knowing:
 
 - **Chat names are claimed with a PIN, not a real login.** The PIN is hashed (never stored in the clear) and stops casual impersonation, but there's no rate limiting on guessing it, and a short PIN is guessable — see the API repo's README for the full picture, including the small race window if two people claim the same new name at the exact same moment.
-- **Direct messages are only readable by their two participants** — the Worker checks this server-side, not just in the UI — but there's no encryption beyond Cloudflare's normal HTTPS, no delete/edit, and the admin's Accounts tab can see *who* has claimed a name without being able to read what they've sent anyone.
-- **Chat has zero rate limiting or moderation beyond the PIN check.** See the API repo's README for what that means in practice and what stronger options exist (Turnstile, Durable Objects) if you want them later.
+- **Direct messages are only readable by their participants** — the Worker checks this server-side, not just in the UI — but there's no encryption beyond Cloudflare's normal HTTPS, and the admin's Accounts tab can see *who* has claimed a name without being able to read what they've sent anyone.
+- **Blocking only stops 1:1 conversations, not groups.** If someone blocks you, `dm/start` and `dm/send` both refuse for a two-person conversation; a group with that person in it isn't filtered. This is a documented gap, not a bug.
+- **Avatars and status lines are public** to anyone logged into chat — treat them the same as the display name itself, not as private profile data.
+- **Chat has zero rate limiting or moderation beyond the PIN check and pin/unpin being admin-gated.** See the API repo's README for what that means in practice and what stronger options exist (Turnstile, Durable Objects) if you want them later.
 - **Custom-page HTML is served as-is**, including any `<script>` tags. Since only someone with the admin password can create one, this is consistent with the rest of the site's trust model, but there's no sandboxing of what a custom page can do once visited.
 - **The Custom Pages access token is a casual gate, same as everything else here** — it stops accidental bookmarking/reloading, not someone reading the client-side source and calling the token-minting endpoint themselves.
 - **Custom redirects to a file on this same site don't automatically get the "block direct navigation" guard** the built-in hidden pages have — that logic lives inside each page's own code. To add it to a custom page, drop this near the top of its `<body>`:
