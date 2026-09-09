@@ -486,6 +486,101 @@
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 14px;
   }
+
+  /* --- Custom Redirects: bulk actions + advanced (per-row) --- */
+  #redirect-bulk-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .custom-row-wrap { border-top: 1px solid var(--border-col); padding: 10px 0; }
+  .custom-row-wrap .custom-row { border-top: none; padding: 0 0 6px; }
+  .advanced-toggle {
+    background: none; border: none; color: var(--muted);
+    font-size: 11px; cursor: pointer; padding: 2px 0;
+  }
+  .advanced-toggle:hover { color: var(--text-light); }
+  .advanced-panel {
+    display: none;
+    flex-wrap: wrap;
+    gap: 10px;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 6px;
+    font-size: 11.5px;
+  }
+  .advanced-panel.open { display: flex; }
+  .advanced-field { display: flex; flex-direction: column; gap: 3px; }
+  .advanced-field label { color: var(--muted); font-size: 10.5px; }
+  .advanced-field input[type="text"], .advanced-field input[type="datetime-local"] {
+    background-color: var(--panel-bg-2);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 11.5px;
+  }
+  .advanced-field.checkbox { flex-direction: row; align-items: center; gap: 6px; }
+  .advanced-field.checkbox label { font-size: 11.5px; color: var(--text-light); }
+
+  /* --- Custom Pages: guest pass --- */
+  .guest-pass-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 11.5px;
+  }
+  .guest-pass-row select {
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 11.5px;
+  }
+  .guest-pass-url { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* --- Dashboard: backup/restore --- */
+  #backup-card { margin-top: 14px; }
+  #backup-card .btn-ghost.small { display: inline-block; margin-right: 8px; }
+  #import-status { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+
+  /* --- KV inspector + secret notes (Experimental) --- */
+  #kv-inspector-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  #kv-inspector-select {
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  #kv-inspector-output {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 7px;
+    padding: 8px;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    min-height: 100px;
+    resize: vertical;
+  }
+  #note-text-input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 7px;
+    padding: 8px;
+    font-size: 12px;
+    min-height: 70px;
+    resize: vertical;
+    margin-bottom: 8px;
+  }
+  #note-result { font-size: 11.5px; color: var(--good); margin-top: 8px; word-break: break-all; }
 </style>
 </head>
 <body>
@@ -550,6 +645,15 @@
                 <div class="exp-sub" id="dash-top-trigger-count"></div>
               </div>
             </div>
+
+            <div id="backup-card">
+              <h2>Backup &amp; Restore</h2>
+              <p class="subtitle">Export your trigger config and custom pages as one JSON file before a risky change, or restore from a previous export. Chat/DM data isn't included — this is site configuration, not user content.</p>
+              <button id="export-btn" class="btn-ghost small">Export Config</button>
+              <label class="btn-ghost small" for="import-file-input" style="cursor:pointer;">Import Config</label>
+              <input type="file" id="import-file-input" accept="application/json" style="display:none;">
+              <div id="import-status"></div>
+            </div>
           </section>
 
           <section class="tab-panel hidden" data-tab="site">
@@ -560,7 +664,11 @@
 
           <section class="tab-panel hidden" data-tab="redirects">
             <h2>Custom Redirects</h2>
-            <p class="subtitle">Add your own trigger words that jump to any path on this site (e.g. <code>/oliverbar.html</code>), a self-serve page (see Custom Pages), or any full URL.</p>
+            <p class="subtitle">Add your own trigger words that jump to any path on this site (e.g. <code>/oliverbar.html</code>), a self-serve page (see Custom Pages), or any full URL. Each row has an <strong>Advanced</strong> toggle for alias words, one-time/scheduled triggers, and random-page mode.</p>
+            <div id="redirect-bulk-actions">
+              <button id="enable-all-btn" class="btn-ghost small">Enable All</button>
+              <button id="disable-all-btn" class="btn-ghost small">Disable All</button>
+            </div>
             <div id="custom-rows-container"></div>
             <button id="add-custom-btn">+ Add Custom Redirect</button>
           </section>
@@ -601,6 +709,21 @@
                 <div id="trigger-stats-list"></div>
                 <div id="trigger-stats-empty" class="hidden">No triggers fired yet.</div>
                 <button id="refresh-stats-btn" class="btn-ghost small">Refresh</button>
+              </div>
+              <div class="exp-card wide">
+                <div class="exp-card-title">Raw KV Inspector</div>
+                <div id="kv-inspector-row">
+                  <select id="kv-inspector-select"></select>
+                  <button id="kv-inspector-load-btn" class="btn-ghost small">Load</button>
+                </div>
+                <textarea id="kv-inspector-output" readonly placeholder="Pick a key and click Load."></textarea>
+                <div class="exp-sub">Only safe, non-private keys are listed — chat sessions, DMs, and PIN data are never exposed here.</div>
+              </div>
+              <div class="exp-card wide">
+                <div class="exp-card-title">Burn-After-Reading Notes</div>
+                <textarea id="note-text-input" placeholder="Write a note. The link works exactly once, then it's gone for good."></textarea>
+                <button id="create-note-btn" class="btn-ghost small">Create Link</button>
+                <div id="note-result"></div>
               </div>
             </div>
           </section>
@@ -684,6 +807,17 @@
       const dashLiveNow = document.getElementById('dash-live-now');
       const dashTopTrigger = document.getElementById('dash-top-trigger');
       const dashTopTriggerCount = document.getElementById('dash-top-trigger-count');
+      const enableAllBtn = document.getElementById('enable-all-btn');
+      const disableAllBtn = document.getElementById('disable-all-btn');
+      const exportBtn = document.getElementById('export-btn');
+      const importFileInput = document.getElementById('import-file-input');
+      const importStatus = document.getElementById('import-status');
+      const kvInspectorSelect = document.getElementById('kv-inspector-select');
+      const kvInspectorLoadBtn = document.getElementById('kv-inspector-load-btn');
+      const kvInspectorOutput = document.getElementById('kv-inspector-output');
+      const noteTextInput = document.getElementById('note-text-input');
+      const createNoteBtn = document.getElementById('create-note-btn');
+      const noteResult = document.getElementById('note-result');
 
       let customPages = [];
 
@@ -717,6 +851,7 @@
         } else if (tab === 'experimental') {
           fetchTriggerStats();
           fetchPresenceCount();
+          if (!kvInspectorSelect.options.length) loadKvKeys();
           presencePollTimer = setInterval(fetchPresenceCount, 5000);
         }
       }
@@ -840,6 +975,52 @@
           });
           bottom.appendChild(removeBtn);
 
+          const guestRow = document.createElement('div');
+          guestRow.className = 'guest-pass-row';
+          guestRow.style.flex = '1';
+          guestRow.style.minWidth = '0';
+          guestRow.style.marginTop = '0';
+
+          const durationSelect = document.createElement('select');
+          [['10', '10 minutes'], ['30', '30 minutes'], ['60', '1 hour'], ['1440', '24 hours']].forEach(function (opt) {
+            const o = document.createElement('option');
+            o.value = opt[0];
+            o.textContent = opt[1];
+            durationSelect.appendChild(o);
+          });
+
+          const genBtn = document.createElement('button');
+          genBtn.type = 'button';
+          genBtn.className = 'copy-btn';
+          genBtn.style.width = 'auto';
+          genBtn.style.padding = '4px 10px';
+          genBtn.textContent = 'Guest Pass';
+
+          const guestUrlLabel = document.createElement('div');
+          guestUrlLabel.className = 'guest-pass-url';
+
+          genBtn.addEventListener('click', function () {
+            if (!API_BASE) return;
+            if (!page.slug) { guestUrlLabel.textContent = 'Set a slug first.'; return; }
+            fetch(API_BASE + '/api/admin/guest-pass', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
+              body: JSON.stringify({ slug: page.slug, minutes: Number(durationSelect.value) })
+            }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Failed'); return d; }); })
+              .then(function (data) {
+                const base = PAGES_BASE || API_BASE;
+                const url = base + '/page/' + page.slug + '?g=' + data.token;
+                guestUrlLabel.textContent = url;
+                navigator.clipboard.writeText(url).catch(function () {});
+              })
+              .catch(function (err) { guestUrlLabel.textContent = err.message; });
+          });
+
+          guestRow.appendChild(durationSelect);
+          guestRow.appendChild(genBtn);
+          guestRow.appendChild(guestUrlLabel);
+          bottom.appendChild(guestRow);
+
           entry.appendChild(top);
           entry.appendChild(htmlInput);
           entry.appendChild(bottom);
@@ -939,12 +1120,22 @@
         renderCustomRows();
       }
 
+      function toDatetimeLocalValue(ms) {
+        if (!ms) return '';
+        const d = new Date(ms);
+        const pad = function (n) { return String(n).padStart(2, '0'); };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      }
+
       function renderCustomRows() {
         customRowsContainer.innerHTML = '';
         (config.custom || []).forEach(function (item) {
+          const wrap = document.createElement('div');
+          wrap.className = 'custom-row-wrap';
+          wrap.dataset.id = item.id;
+
           const row = document.createElement('div');
           row.className = 'custom-row';
-          row.dataset.id = item.id;
 
           const triggerInput = document.createElement('input');
           triggerInput.type = 'text';
@@ -959,8 +1150,9 @@
           const destInput = document.createElement('input');
           destInput.type = 'text';
           destInput.className = 'dest-input';
-          destInput.placeholder = '/page.html or https://example.com';
+          destInput.placeholder = item.random ? '(random custom page — destination ignored)' : '/page.html or https://example.com';
           destInput.value = item.destination || '';
+          destInput.disabled = !!item.random;
           destInput.addEventListener('input', function () {
             item.destination = destInput.value;
             statusEl.textContent = 'Unsaved changes';
@@ -994,9 +1186,124 @@
           row.appendChild(destInput);
           row.appendChild(toggleWrap);
           row.appendChild(removeBtn);
-          customRowsContainer.appendChild(row);
+
+          const advToggle = document.createElement('button');
+          advToggle.type = 'button';
+          advToggle.className = 'advanced-toggle';
+          advToggle.textContent = '▸ Advanced (aliases, one-time, schedule, random page)';
+
+          const advPanel = document.createElement('div');
+          advPanel.className = 'advanced-panel';
+
+          advToggle.addEventListener('click', function () {
+            advPanel.classList.toggle('open');
+            advToggle.textContent = (advPanel.classList.contains('open') ? '▾' : '▸') + ' Advanced (aliases, one-time, schedule, random page)';
+          });
+
+          // Aliases
+          const aliasField = document.createElement('div');
+          aliasField.className = 'advanced-field';
+          const aliasLabel = document.createElement('label');
+          aliasLabel.textContent = 'Alias trigger words (comma-separated)';
+          const aliasInput = document.createElement('input');
+          aliasInput.type = 'text';
+          aliasInput.placeholder = 'e.g. secret, backdoor';
+          aliasInput.value = (item.aliases || []).join(', ');
+          aliasInput.addEventListener('input', function () {
+            item.aliases = aliasInput.value.split(',').map(function (a) { return a.trim(); }).filter(Boolean).slice(0, 5);
+            statusEl.textContent = 'Unsaved changes';
+          });
+          aliasField.appendChild(aliasLabel);
+          aliasField.appendChild(aliasInput);
+
+          // One-time
+          const oneTimeField = document.createElement('div');
+          oneTimeField.className = 'advanced-field checkbox';
+          const oneTimeInput = document.createElement('input');
+          oneTimeInput.type = 'checkbox';
+          oneTimeInput.id = 'onetime-' + item.id;
+          oneTimeInput.checked = !!item.oneTime;
+          oneTimeInput.addEventListener('change', function () {
+            item.oneTime = oneTimeInput.checked;
+            statusEl.textContent = 'Unsaved changes';
+          });
+          const oneTimeLabel = document.createElement('label');
+          oneTimeLabel.htmlFor = oneTimeInput.id;
+          oneTimeLabel.textContent = 'One-time (disables itself after first use)';
+          oneTimeField.appendChild(oneTimeInput);
+          oneTimeField.appendChild(oneTimeLabel);
+
+          // Random page
+          const randomField = document.createElement('div');
+          randomField.className = 'advanced-field checkbox';
+          const randomInput = document.createElement('input');
+          randomInput.type = 'checkbox';
+          randomInput.id = 'random-' + item.id;
+          randomInput.checked = !!item.random;
+          randomInput.addEventListener('change', function () {
+            item.random = randomInput.checked;
+            destInput.disabled = !!item.random;
+            destInput.placeholder = item.random ? '(random custom page — destination ignored)' : '/page.html or https://example.com';
+            statusEl.textContent = 'Unsaved changes';
+          });
+          const randomLabel = document.createElement('label');
+          randomLabel.htmlFor = randomInput.id;
+          randomLabel.textContent = 'Send to a random Custom Page';
+          randomField.appendChild(randomInput);
+          randomField.appendChild(randomLabel);
+
+          // Schedule
+          const fromField = document.createElement('div');
+          fromField.className = 'advanced-field';
+          const fromLabel = document.createElement('label');
+          fromLabel.textContent = 'Active from';
+          const fromInput = document.createElement('input');
+          fromInput.type = 'datetime-local';
+          fromInput.value = toDatetimeLocalValue(item.activeFrom);
+          fromInput.addEventListener('input', function () {
+            item.activeFrom = fromInput.value ? new Date(fromInput.value).getTime() : null;
+            statusEl.textContent = 'Unsaved changes';
+          });
+          fromField.appendChild(fromLabel);
+          fromField.appendChild(fromInput);
+
+          const untilField = document.createElement('div');
+          untilField.className = 'advanced-field';
+          const untilLabel = document.createElement('label');
+          untilLabel.textContent = 'Active until';
+          const untilInput = document.createElement('input');
+          untilInput.type = 'datetime-local';
+          untilInput.value = toDatetimeLocalValue(item.activeUntil);
+          untilInput.addEventListener('input', function () {
+            item.activeUntil = untilInput.value ? new Date(untilInput.value).getTime() : null;
+            statusEl.textContent = 'Unsaved changes';
+          });
+          untilField.appendChild(untilLabel);
+          untilField.appendChild(untilInput);
+
+          advPanel.appendChild(aliasField);
+          advPanel.appendChild(oneTimeField);
+          advPanel.appendChild(randomField);
+          advPanel.appendChild(fromField);
+          advPanel.appendChild(untilField);
+
+          wrap.appendChild(row);
+          wrap.appendChild(advToggle);
+          wrap.appendChild(advPanel);
+          customRowsContainer.appendChild(wrap);
         });
       }
+
+      enableAllBtn.addEventListener('click', function () {
+        (config.custom || []).forEach(function (item) { item.enabled = true; });
+        renderCustomRows();
+        statusEl.textContent = 'Unsaved changes';
+      });
+      disableAllBtn.addEventListener('click', function () {
+        (config.custom || []).forEach(function (item) { item.enabled = false; });
+        renderCustomRows();
+        statusEl.textContent = 'Unsaved changes';
+      });
 
       addCustomBtn.addEventListener('click', function () {
         if (!config.custom) config.custom = [];
@@ -1222,6 +1529,105 @@
           })
           .catch(function (err) { console.error(err); });
       }
+
+      // ---------- Backup / restore ----------
+      exportBtn.addEventListener('click', function () {
+        if (!API_BASE) return;
+        fetch(API_BASE + '/api/admin/export', { headers: { 'X-Edit-Key': currentEditKey || '' } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'oliverbar-config-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          })
+          .catch(function (err) { importStatus.textContent = 'Export failed: ' + err.message; });
+      });
+
+      importFileInput.addEventListener('change', function () {
+        const file = importFileInput.files[0];
+        if (!file || !API_BASE) return;
+        const reader = new FileReader();
+        reader.onload = function () {
+          let parsed;
+          try { parsed = JSON.parse(reader.result); } catch (e) {
+            importStatus.textContent = 'That file is not valid JSON.';
+            return;
+          }
+          if (!window.confirm('Import this backup? It will overwrite the current trigger config and custom pages.')) return;
+          importStatus.textContent = 'Importing...';
+          fetch(API_BASE + '/api/admin/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
+            body: JSON.stringify({ config: parsed.config, pages: parsed.pages })
+          }).then(function (r) {
+            return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Import failed'); return d; });
+          }).then(function () {
+            importStatus.textContent = 'Imported — reloading...';
+            fetchConfig();
+            fetchPages();
+            fetchDashboard();
+          }).catch(function (err) {
+            importStatus.textContent = 'Import failed: ' + err.message;
+          });
+        };
+        reader.readAsText(file);
+        importFileInput.value = '';
+      });
+
+      // ---------- Raw KV inspector ----------
+      function loadKvKeys() {
+        if (!API_BASE) return;
+        fetch(API_BASE + '/api/admin/kv', { headers: { 'X-Edit-Key': currentEditKey || '' } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            kvInspectorSelect.innerHTML = '';
+            (data.keys || []).forEach(function (k) {
+              const o = document.createElement('option');
+              o.value = k;
+              o.textContent = k;
+              kvInspectorSelect.appendChild(o);
+            });
+          })
+          .catch(function () {});
+      }
+      kvInspectorLoadBtn.addEventListener('click', function () {
+        if (!API_BASE || !kvInspectorSelect.value) return;
+        kvInspectorOutput.value = 'Loading...';
+        fetch(API_BASE + '/api/admin/kv/value?key=' + encodeURIComponent(kvInspectorSelect.value), {
+          headers: { 'X-Edit-Key': currentEditKey || '' }
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+            try { kvInspectorOutput.value = JSON.stringify(JSON.parse(data.value), null, 2); }
+            catch (e) { kvInspectorOutput.value = data.value == null ? '(empty)' : data.value; }
+          })
+          .catch(function (err) { kvInspectorOutput.value = 'Error: ' + err.message; });
+      });
+
+      // ---------- Burn-after-reading notes ----------
+      createNoteBtn.addEventListener('click', function () {
+        if (!API_BASE) return;
+        const text = noteTextInput.value.trim();
+        if (!text) return;
+        fetch(API_BASE + '/api/notes/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
+          body: JSON.stringify({ text: text })
+        }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Failed'); return d; }); })
+          .then(function (data) {
+            const base = PAGES_BASE || API_BASE;
+            const url = base + '/secret/' + data.id;
+            noteResult.textContent = 'Link (copied): ' + url;
+            navigator.clipboard.writeText(url).catch(function () {});
+            noteTextInput.value = '';
+          })
+          .catch(function (err) { noteResult.textContent = 'Error: ' + err.message; });
+      });
 
       // ---------- Password modal ----------
       function attemptUnlock() {

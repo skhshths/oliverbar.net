@@ -459,6 +459,46 @@
     cursor: pointer;
     padding: 2px;
   }
+  .emoji-picker input[type="text"] {
+    width: 40px;
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 6px;
+    font-size: 13px;
+    padding: 2px 4px;
+  }
+
+  .quoted-reply {
+    background-color: rgba(0,0,0,0.15);
+    border-left: 2px solid var(--accent);
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-bottom: 5px;
+    font-size: 11.5px;
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .quoted-reply .quoted-who { font-weight: 600; }
+
+  #reply-preview {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--panel-bg-2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  #reply-preview.hidden { display: none; }
+  #reply-preview button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; }
+  #reply-preview button:hover { color: var(--text-light); }
+
+  .msg-controls button.starred { color: var(--accent); }
 
   #typing-indicator {
     padding: 0 18px;
@@ -548,6 +588,11 @@
         </div>
 
         <div class="settings-section">
+          <h3>Export</h3>
+          <button id="export-history-btn" class="small" style="width:100%;background-color:var(--panel-bg-2);color:var(--text-light);border:1px solid var(--border-col);border-radius:8px;padding:9px;font-size:13px;cursor:pointer;">Download my chat history</button>
+        </div>
+
+        <div class="settings-section">
           <h3>Blocked</h3>
           <div class="settings-row" style="margin-bottom: 8px;">
             <input type="text" id="block-name-input" maxlength="24" placeholder="Name to block">
@@ -605,6 +650,10 @@
         <div id="messages"></div>
         <div id="typing-indicator"></div>
         <div id="compose">
+          <div id="reply-preview" class="hidden">
+            <span id="reply-preview-text"></span>
+            <button id="reply-cancel-btn" type="button">✕</button>
+          </div>
           <div id="compose-row">
             <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
             <button id="send-btn">Send</button>
@@ -660,6 +709,7 @@
       const settingsError = document.getElementById('settings-error');
       const settingsDangerBtn = document.getElementById('settings-danger-btn');
       const notifToggleBtn = document.getElementById('notif-toggle-btn');
+      const exportHistoryBtn = document.getElementById('export-history-btn');
       const blockNameInput = document.getElementById('block-name-input');
       const blockNameBtn = document.getElementById('block-name-btn');
       const blockedList = document.getElementById('blocked-list');
@@ -685,6 +735,9 @@
       const chatInput = document.getElementById('chat-input');
       const sendBtn = document.getElementById('send-btn');
       const composeStatus = document.getElementById('compose-status');
+      const replyPreview = document.getElementById('reply-preview');
+      const replyPreviewText = document.getElementById('reply-preview-text');
+      const replyCancelBtn = document.getElementById('reply-cancel-btn');
 
       const REACTION_CHOICES = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -704,8 +757,10 @@
       let latestThreads = [];
       let blockedNames = [];
       const profileCache = {}; // lowerName -> { avatar, status }
-      const presenceCache = {}; // lowerName -> bool
+      const presenceCache = {}; // lowerName -> { online, lastSeen }
       let notifiedIds = {}; // messageId -> true, so we don't double-notify
+      let replyingTo = null; // { id, who, text } — the message being replied to, or null
+      const STARRED_KEY = "chatStarred"; // { [messageId]: true } — purely a client-side bookmark, not synced
 
       // ---------- Small localStorage helpers ----------
       function readJSON(key, fallback) {
@@ -719,6 +774,13 @@
         const state = readReadState();
         state[convId] = Date.now();
         writeJSON(READ_STATE_KEY, state);
+      }
+
+      function isStarred(id) { return !!readJSON(STARRED_KEY, {})[id]; }
+      function toggleStarred(id) {
+        const state = readJSON(STARRED_KEY, {});
+        if (state[id]) delete state[id]; else state[id] = true;
+        writeJSON(STARRED_KEY, state);
       }
 
       function showNameError(msg) {
@@ -889,12 +951,22 @@
         switchToGlobal();
       }
 
+      // Purely cosmetic, client-derived from a lifetime message count the
+      // Worker already tracks — nothing server-enforced here.
+      function badgeFor(count) {
+        if (count >= 200) return '🏆 Legend';
+        if (count >= 50) return '⭐ Regular';
+        if (count >= 10) return '🌱 Chatterbox';
+        return '';
+      }
+
       function loadOwnProfile() {
         api('/api/chat/profile?names=' + encodeURIComponent(myName)).then(function (data) {
           const mine = data[myName];
           if (mine) {
             myAvatarEl.textContent = mine.avatar || myName.charAt(0).toUpperCase();
-            sidebarMyStatus.textContent = mine.status || '';
+            const badge = badgeFor(mine.messageCount || 0);
+            sidebarMyStatus.textContent = (mine.status || '') + (badge ? (mine.status ? '  ·  ' : '') + badge : '');
             settingsAvatar.value = mine.avatar || '';
             settingsStatus.value = mine.status || '';
           } else {
@@ -992,6 +1064,45 @@
         }).catch(function (err) { showSettingsError(err.message); });
       });
 
+      // ---------- Export my history ----------
+      exportHistoryBtn.addEventListener('click', function () {
+        exportHistoryBtn.disabled = true;
+        exportHistoryBtn.textContent = 'Gathering...';
+        Promise.all([
+          fetch(API_BASE + '/api/chat').then(function (r) { return r.json(); }).catch(function () { return []; }),
+          api('/api/dm/threads').catch(function () { return []; })
+        ]).then(function (results) {
+          const globalMessages = results[0];
+          const threads = results[1];
+          return Promise.all((Array.isArray(threads) ? threads : []).map(function (t) {
+            return api('/api/dm/messages?convId=' + encodeURIComponent(t.convId))
+              .then(function (data) { return { participants: t.participants, messages: data.messages }; })
+              .catch(function () { return { participants: t.participants, messages: [] }; });
+          })).then(function (dmThreads) {
+            const bundle = {
+              exportedAt: new Date().toISOString(),
+              exportedBy: myName,
+              globalChat: Array.isArray(globalMessages) ? globalMessages : [],
+              directMessages: dmThreads,
+            };
+            const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chat-history-' + myName + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          });
+        }).catch(function (err) {
+          showSettingsError(err.message || 'Export failed.');
+        }).finally(function () {
+          exportHistoryBtn.disabled = false;
+          exportHistoryBtn.textContent = 'Download my chat history';
+        });
+      });
+
       // ---------- Browser notifications ----------
       function setupNotifButton() {
         if (!('Notification' in window)) {
@@ -1026,7 +1137,13 @@
         typingIndicator.textContent = '';
       }
 
+      function cancelReply() {
+        replyingTo = null;
+        replyPreview.classList.add('hidden');
+      }
+
       function switchToGlobal() {
+        cancelReply();
         currentView = 'global';
         currentConvId = '';
         currentOthers = [];
@@ -1045,6 +1162,7 @@
       }
 
       function switchToDm(convId, participants) {
+        cancelReply();
         currentView = 'dm';
         currentConvId = convId;
         currentOthers = (participants || []).filter(function (p) { return p.toLowerCase() !== myName.toLowerCase(); });
@@ -1219,7 +1337,7 @@
           avatar.className = 'avatar-badge small';
           const prof = profileCache[who.toLowerCase()];
           avatar.textContent = (prof && prof.avatar) ? prof.avatar : who.charAt(0).toUpperCase();
-          if (presenceCache[who.toLowerCase()]) {
+          if (presenceCache[who.toLowerCase()] && presenceCache[who.toLowerCase()].online) {
             const dot = document.createElement('div');
             dot.className = 'online-dot';
             avatar.appendChild(dot);
@@ -1235,6 +1353,17 @@
           nameEl.className = 'msg-name';
           nameEl.textContent = who;
           bubble.appendChild(nameEl);
+
+          if (!m.deleted && m.replyTo) {
+            const quoted = document.createElement('div');
+            quoted.className = 'quoted-reply';
+            const quotedWho = document.createElement('span');
+            quotedWho.className = 'quoted-who';
+            quotedWho.textContent = m.replyTo.who + ': ';
+            quoted.appendChild(quotedWho);
+            quoted.appendChild(document.createTextNode(m.replyTo.text == null ? '(deleted message)' : m.replyTo.text));
+            bubble.appendChild(quoted);
+          }
 
           const textEl = document.createElement('div');
           if (m.deleted) {
@@ -1293,9 +1422,40 @@
               eb.addEventListener('click', function () { toggleReaction(m.id, emoji); picker.classList.remove('open'); });
               picker.appendChild(eb);
             });
+            const customEmojiInput = document.createElement('input');
+            customEmojiInput.type = 'text';
+            customEmojiInput.placeholder = '?';
+            customEmojiInput.maxLength = 8;
+            customEmojiInput.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter' && customEmojiInput.value.trim()) {
+                toggleReaction(m.id, customEmojiInput.value.trim());
+                picker.classList.remove('open');
+              }
+            });
+            picker.appendChild(customEmojiInput);
             reactBtn.addEventListener('click', function () { picker.classList.toggle('open'); });
             bubble.appendChild(picker);
             controls.appendChild(reactBtn);
+
+            const replyBtn = document.createElement('button');
+            replyBtn.textContent = 'Reply';
+            replyBtn.addEventListener('click', function () { startReply(m, who); });
+            controls.appendChild(replyBtn);
+
+            const forwardBtn = document.createElement('button');
+            forwardBtn.textContent = 'Forward';
+            forwardBtn.addEventListener('click', function () { forwardMessage(m, who); });
+            controls.appendChild(forwardBtn);
+
+            const starBtn = document.createElement('button');
+            starBtn.textContent = isStarred(m.id) ? '★ Starred' : '☆ Star';
+            if (isStarred(m.id)) starBtn.classList.add('starred');
+            starBtn.addEventListener('click', function () {
+              toggleStarred(m.id);
+              starBtn.textContent = isStarred(m.id) ? '★ Starred' : '☆ Star';
+              starBtn.classList.toggle('starred', isStarred(m.id));
+            });
+            controls.appendChild(starBtn);
 
             if (mine) {
               const editBtn = document.createElement('button');
@@ -1350,6 +1510,40 @@
         api(path, { method: 'POST', body: body }).then(fetchActiveMessages).catch(function (err) { composeStatus.textContent = err.message; });
       }
 
+      // ---------- Reply ----------
+      function startReply(m, who) {
+        replyingTo = { id: m.id, who: who, text: m.deleted ? null : m.text };
+        replyPreviewText.textContent = 'Replying to ' + who + ': ' + (replyingTo.text || '(deleted message)');
+        replyPreview.classList.remove('hidden');
+        chatInput.focus();
+      }
+      replyCancelBtn.addEventListener('click', cancelReply);
+
+      // ---------- Forward ----------
+      // Sends a copy of an existing message's text somewhere else —
+      // global chat, an existing conversation, or a brand-new one by
+      // name. Purely client-side: it's just a normal send with the
+      // text pre-filled from another message.
+      function forwardMessage(m, who) {
+        if (m.deleted) return;
+        const target = window.prompt('Forward to (a name to DM, an existing group\'s participant names comma-separated, or leave blank for Global Chat):', '');
+        if (target === null) return;
+        const text = 'Fwd from ' + who + ': ' + m.text;
+        if (!target.trim()) {
+          api('/api/chat', { method: 'POST', body: { text: text } }).then(function () {
+            if (currentView === 'global') fetchActiveMessages();
+          }).catch(function (err) { composeStatus.textContent = err.message; });
+          return;
+        }
+        const participants = target.split(',').map(function (n) { return n.trim(); }).filter(Boolean);
+        api('/api/dm/start', { method: 'POST', body: { participants: participants } })
+          .then(function (data) {
+            return api('/api/dm/send', { method: 'POST', body: { convId: data.convId, text: text } });
+          })
+          .then(function () { fetchThreads(); if (currentView === 'dm') fetchActiveMessages(); })
+          .catch(function (err) { composeStatus.textContent = err.message; });
+      }
+
       // ---------- Typing indicators ----------
       function pingTyping() {
         const now = Date.now();
@@ -1389,7 +1583,27 @@
         api('/api/chat/presence?names=' + encodeURIComponent(names.join(','))).then(function (data) {
           Object.keys(data).forEach(function (n) { presenceCache[n.toLowerCase()] = data[n]; });
           renderThreadListActiveState();
+          updateDmHeaderPresence();
         }).catch(function () {});
+      }
+
+      function formatLastSeen(ts) {
+        if (!ts) return 'offline';
+        const mins = Math.round((Date.now() - ts) / 60000);
+        if (mins < 1) return 'last seen just now';
+        if (mins < 60) return 'last seen ' + mins + 'm ago';
+        const hours = Math.round(mins / 60);
+        if (hours < 24) return 'last seen ' + hours + 'h ago';
+        return 'last seen ' + Math.round(hours / 24) + 'd ago';
+      }
+
+      // For a 1:1 DM, swap the generic header subtitle for the other
+      // person's live status once we know it.
+      function updateDmHeaderPresence() {
+        if (currentView !== 'dm' || currentOthers.length !== 1) return;
+        const p = presenceCache[currentOthers[0].toLowerCase()];
+        if (!p) return;
+        chatHeaderSub.textContent = p.online ? 'online' : formatLastSeen(p.lastSeen);
       }
 
       // ---------- DM thread list ----------
@@ -1415,7 +1629,8 @@
           avatar.className = 'avatar-badge small';
           const prof = others.length === 1 ? profileCache[others[0].toLowerCase()] : null;
           avatar.textContent = prof && prof.avatar ? prof.avatar : label.charAt(0).toUpperCase();
-          if (others.length === 1 && presenceCache[others[0].toLowerCase()]) {
+          const otherPresence = others.length === 1 ? presenceCache[others[0].toLowerCase()] : null;
+          if (otherPresence && otherPresence.online) {
             const dot = document.createElement('div');
             dot.className = 'online-dot';
             avatar.appendChild(dot);
@@ -1426,7 +1641,8 @@
 
           const nameEl = document.createElement('div');
           nameEl.className = 'thread-name';
-          nameEl.textContent = label;
+          const badge = (others.length === 1 && prof) ? badgeFor(prof.messageCount || 0) : '';
+          nameEl.textContent = label + (badge ? ' ' + badge : '');
 
           const previewEl = document.createElement('div');
           previewEl.className = 'thread-preview';
@@ -1462,9 +1678,12 @@
         const isDm = currentView === 'dm';
         const path = isDm ? '/api/dm/send' : '/api/chat';
         const body = isDm ? { convId: currentConvId, text: text } : { text: text };
+        if (replyingTo) body.replyTo = replyingTo.id;
 
         api(path, { method: 'POST', body: body }).then(function () {
           chatInput.value = '';
+          replyingTo = null;
+          replyPreview.classList.add('hidden');
           fetchActiveMessages();
           if (isDm) fetchThreads();
         }).catch(function (err) {

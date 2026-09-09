@@ -98,6 +98,7 @@
         });
         (cfg.custom || []).forEach(function (item) {
           if (item.trigger) max = Math.max(max, item.trigger.length);
+          (item.aliases || []).forEach(function (a) { max = Math.max(max, a.length); });
         });
         return max;
       }
@@ -172,6 +173,45 @@
           });
       }
 
+      // A "random page" custom redirect ignores its stored destination
+      // and asks the Worker to pick a random custom page each time it
+      // fires, then goes through the normal token-mint-and-navigate flow.
+      function goToRandomPage() {
+        if (!API_BASE) return;
+        fetch(API_BASE + "/api/pages/random")
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.slug) return;
+            const base = pagesOrigin();
+            if (base) goToDestination(base + "/page/" + data.slug);
+          })
+          .catch(function () {});
+      }
+
+      // A one-time custom redirect turns itself off the moment it's
+      // used — fire-and-forget, same trust level as the usage counter
+      // (reaching this point already required typing the right word).
+      function disableCustomOnce(id) {
+        if (!API_BASE) return;
+        fetch(API_BASE + "/api/config/disable-custom", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: id })
+        }).catch(function () {});
+      }
+
+      function isWithinSchedule(item) {
+        const now = Date.now();
+        if (item.activeFrom && now < item.activeFrom) return false;
+        if (item.activeUntil && now > item.activeUntil) return false;
+        return true;
+      }
+
+      function matchesCustomTrigger(item) {
+        if (item.trigger && buffer.endsWith(item.trigger)) return true;
+        return (item.aliases || []).some(function (a) { return a && buffer.endsWith(a); });
+      }
+
       function checkTriggers() {
         // Admin is always treated as enabled, no matter what's stored,
         // so renaming/disabling other entries can never lock you out
@@ -190,16 +230,24 @@
         }
 
         // Custom, admin-defined redirects — either a path on this same
-        // site, a self-serve page on pages.oliverbar.net, or a full
-        // external URL; all three just work.
+        // site, a self-serve page on pages.oliverbar.net, a full
+        // external URL, or a "random page" pick; all just work. Each
+        // can also have alias trigger words, a one-time self-disable,
+        // and/or a scheduled active window.
         const customList = config.custom || [];
         for (let i = 0; i < customList.length; i++) {
           const item = customList[i];
           if (!item || item.enabled === false) continue;
-          if (item.trigger && buffer.endsWith(item.trigger)) {
+          if (!isWithinSchedule(item)) continue;
+          if (matchesCustomTrigger(item)) {
             sessionStorage.setItem(ACCESS_KEY, "custom:" + item.id);
             reportTriggerUse("custom:" + item.id);
-            goToDestination(item.destination);
+            if (item.oneTime) disableCustomOnce(item.id);
+            if (item.random) {
+              goToRandomPage();
+            } else {
+              goToDestination(item.destination);
+            }
             return;
           }
         }
