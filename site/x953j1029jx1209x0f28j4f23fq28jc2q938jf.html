@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.</title>
+
+<style>
+  :root {
+    --near-black: #141413;
+    --panel-bg: #262624;
+    --panel-bg-2: #30302e;
+    --border-col: #45443f;
+    --text-light: #faf9f5;
+    --muted: #b0aea5;
+    --accent: #d97757;
+    --accent-hover: #c96442;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: var(--near-black);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-light);
+  }
+
+  #app {
+    min-height: 100%;
+    padding: 32px 24px 48px;
+    box-sizing: border-box;
+  }
+
+  #hub-header {
+    max-width: 900px;
+    margin: 0 auto 22px;
+  }
+  #hub-header h1 { font-size: 20px; margin: 0 0 4px; }
+  #hub-header .subtitle { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+  #games-grid {
+    max-width: 900px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+  }
+
+  .game-card {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-col);
+    border-radius: 12px;
+    padding: 18px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-light);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, transform 0.1s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .game-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .game-card .game-host {
+    font-size: 10.5px;
+    color: var(--muted);
+    font-weight: 400;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #games-empty, #games-loading {
+    max-width: 900px;
+    margin: 0 auto;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .hidden { display: none !important; }
+
+  /* --- Fullscreen player --- */
+  #player {
+    position: fixed;
+    inset: 0;
+    background-color: #000;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+  }
+  #player.hidden { display: none !important; }
+
+  #player-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    background-color: var(--panel-bg);
+    border-bottom: 1px solid var(--border-col);
+    font-size: 13px;
+  }
+  #player-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #player-bar button {
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 7px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #player-bar button:hover { border-color: var(--accent); }
+  #player-bar .hint { font-size: 10.5px; color: var(--muted); flex-shrink: 0; }
+
+  #player-frame {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background-color: #000;
+  }
+
+  #player-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    pointer-events: none;
+  }
+  #player-error.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+  <div id="app">
+    <div id="hub-header">
+      <h1>Games</h1>
+      <p class="subtitle">Click one to play it fullscreen. Esc or Back returns here.</p>
+    </div>
+    <div id="games-loading">Loading...</div>
+    <div id="games-grid"></div>
+    <div id="games-empty" class="hidden">
+      No games yet. Add them from the admin panel (<strong>Games</strong> tab) — each one needs a title and an <code>https://</code> embed URL.
+    </div>
+  </div>
+
+  <div id="player" class="hidden">
+    <div id="player-bar">
+      <button id="player-back" type="button">← Back</button>
+      <div id="player-title"></div>
+      <span class="hint">Esc to exit</span>
+      <button id="player-fullscreen" type="button">Fullscreen</button>
+    </div>
+    <iframe id="player-frame"
+            allow="fullscreen; autoplay; gamepad; clipboard-write; cross-origin-isolated"
+            allowfullscreen
+            referrerpolicy="no-referrer"></iframe>
+    <div id="player-error" class="hidden"></div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const ACCESS_KEY = "unlockedAccess";
+      const HOME_PAGE = "/";
+      const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
+
+      // ---------- Direct-access guard ----------
+      if (sessionStorage.getItem(ACCESS_KEY) !== "games") {
+        window.location.replace(HOME_PAGE);
+        return;
+      }
+      sessionStorage.removeItem(ACCESS_KEY);
+
+      const gamesGrid = document.getElementById('games-grid');
+      const gamesLoading = document.getElementById('games-loading');
+      const gamesEmpty = document.getElementById('games-empty');
+      const player = document.getElementById('player');
+      const playerBack = document.getElementById('player-back');
+      const playerTitle = document.getElementById('player-title');
+      const playerFrame = document.getElementById('player-frame');
+      const playerFullscreen = document.getElementById('player-fullscreen');
+      const playerError = document.getElementById('player-error');
+
+      let errorTimer = null;
+
+      function hostOf(url) {
+        try { return new URL(url).hostname; } catch (e) { return ''; }
+      }
+
+      function renderGames(games) {
+        gamesLoading.classList.add('hidden');
+        gamesGrid.innerHTML = '';
+        const enabled = games.filter(function (g) { return g && g.enabled !== false; });
+        gamesEmpty.classList.toggle('hidden', enabled.length > 0);
+
+        enabled.forEach(function (game) {
+          const card = document.createElement('button');
+          card.className = 'game-card';
+          card.type = 'button';
+
+          const title = document.createElement('span');
+          title.textContent = game.title;
+
+          const host = document.createElement('span');
+          host.className = 'game-host';
+          host.textContent = hostOf(game.url);
+
+          card.appendChild(title);
+          card.appendChild(host);
+          card.addEventListener('click', function () { openGame(game); });
+          gamesGrid.appendChild(card);
+        });
+      }
+
+      function openGame(game) {
+        playerTitle.textContent = game.title;
+        playerError.classList.add('hidden');
+        playerFrame.src = game.url;
+        player.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Plenty of sites refuse to be framed (X-Frame-Options /
+        // frame-ancestors). The browser gives us no event for that, so
+        // this just says so after a beat if nothing has painted — the
+        // iframe stays put underneath either way.
+        if (errorTimer) clearTimeout(errorTimer);
+        errorTimer = setTimeout(function () {
+          playerError.textContent = "If this is still blank, that site refuses to be embedded (X-Frame-Options). Nothing to fix on your end — it only works if the host allows framing, so try a self-hosted or embed-friendly copy instead.";
+          playerError.classList.remove('hidden');
+        }, 4000);
+      }
+
+      function closeGame() {
+        if (errorTimer) clearTimeout(errorTimer);
+        player.classList.add('hidden');
+        playerFrame.src = 'about:blank';
+        document.body.style.overflow = '';
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(function () {});
+        }
+      }
+
+      playerBack.addEventListener('click', closeGame);
+
+      playerFullscreen.addEventListener('click', function () {
+        // True browser fullscreen on the whole player (bar included, so
+        // there's still a way out) rather than just the iframe.
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(function () {});
+        } else if (player.requestFullscreen) {
+          player.requestFullscreen().catch(function () {});
+        }
+      });
+
+      document.addEventListener('fullscreenchange', function () {
+        playerFullscreen.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        // Browser fullscreen swallows the first Esc itself; this handles
+        // the windowed case and the second press.
+        if (!player.classList.contains('hidden') && !document.fullscreenElement) {
+          closeGame();
+        }
+      });
+
+      fetch(API_BASE + '/api/games')
+        .then(function (r) { return r.json(); })
+        .then(function (data) { renderGames(Array.isArray(data) ? data : []); })
+        .catch(function (err) {
+          console.error('Could not load games:', err);
+          gamesLoading.textContent = 'Could not reach the Worker — no games to show.';
+        });
+    })();
+  </script>
+
+</body>
+</html>

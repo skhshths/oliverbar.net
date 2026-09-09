@@ -427,6 +427,43 @@
     margin-top: 8px;
   }
 
+  /* --- Games --- */
+  .game-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-col);
+  }
+  .game-row input[type="text"] {
+    background-color: var(--near-black);
+    border: 1px solid var(--border-col);
+    color: var(--text-light);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 12.5px;
+  }
+  .game-row .game-title-input { width: 180px; flex-shrink: 0; }
+  .game-row .game-url-input {
+    flex: 1;
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .game-row input:focus { border-color: var(--accent); outline: none; }
+  .game-row input.invalid { border-color: var(--danger); }
+  #add-game-btn {
+    margin-top: 12px;
+    background-color: var(--panel-bg-2);
+    color: var(--text-light);
+    border: 1px solid var(--border-col);
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #add-game-btn:hover { border-color: var(--accent); }
+  #games-empty-note { font-size: 12px; color: var(--muted); padding: 8px 0; }
+
   /* --- Chat moderation + accounts --- */
   #chat-section { margin-bottom: 26px; }
   #clear-chat-btn {
@@ -609,6 +646,7 @@
           <button class="nav-btn" data-tab="site">Site &amp; Triggers</button>
           <button class="nav-btn" data-tab="redirects">Custom Redirects</button>
           <button class="nav-btn" data-tab="pages">Custom Pages</button>
+          <button class="nav-btn" data-tab="games">Games</button>
           <button class="nav-btn" data-tab="chat">Chat &amp; Accounts</button>
           <button class="nav-btn" data-tab="experimental">Experimental<span class="nav-sub">early / for fun</span></button>
         </div>
@@ -678,6 +716,13 @@
             <p class="subtitle">Paste raw HTML here and it's hosted directly by your Worker — no need to touch the Cloudflare Pages dashboard. Nested paths work too (e.g. slug <code>test/about-us</code>). Copy the generated URL into a Custom Redirect to reach it with a trigger word — opening the raw URL directly won't work, it only loads through the trigger flow.</p>
             <div id="pages-container"></div>
             <button id="add-page-btn">+ Add Custom Page</button>
+          </section>
+
+          <section class="tab-panel hidden" data-tab="games">
+            <h2>Games</h2>
+            <p class="subtitle">Each entry shows up as a button on the games hub (reached with the <code>game123</code> trigger, renameable under Site &amp; Triggers) and opens in a fullscreen embed. URLs must be <code>https://</code>. Note that many sites refuse to be embedded at all — if a game loads blank, that host is sending <code>X-Frame-Options</code> and there's no way around it from this side; self-hosting the game as a Custom Page is the reliable fix.</p>
+            <div id="games-container"></div>
+            <button id="add-game-btn">+ Add Game</button>
           </section>
 
           <section class="tab-panel hidden" data-tab="chat">
@@ -766,8 +811,12 @@
         return base + '/page/' + (slug || '');
       }
 
-      const PAGE_ORDER = ["admin", "interactive", "portfolio", "chat"];
-      const PAGE_LABELS = { admin: "Admin", interactive: "Interactive", portfolio: "Portfolio", chat: "Chat" };
+      const PAGE_ORDER = ["admin", "interactive", "portfolio", "chat", "games"];
+      const PAGE_LABELS = { admin: "Admin", interactive: "Interactive", portfolio: "Portfolio", chat: "Chat", games: "Games" };
+      // Used to seed a built-in page that isn't in a stored config yet
+      // (e.g. Games, added after this site was first deployed) so its
+      // trigger word isn't blank and blocking every save.
+      const DEFAULT_TRIGGERS = { admin: "ADMIN", interactive: "interactive", portfolio: "portfolio", chat: "chat", games: "game123" };
       const ADMIN_FIXED_TRIGGER = "ADMIN"; // matches the Worker's hardcoded value; display-only here
 
       // ---------- Direct-access guard ----------
@@ -790,6 +839,8 @@
       const addCustomBtn = document.getElementById('add-custom-btn');
       const pagesContainer = document.getElementById('pages-container');
       const addPageBtn = document.getElementById('add-page-btn');
+      const gamesContainer = document.getElementById('games-container');
+      const addGameBtn = document.getElementById('add-game-btn');
       const clearChatBtn = document.getElementById('clear-chat-btn');
       const clearChatStatus = document.getElementById('clear-chat-status');
       const saveBtn = document.getElementById('save-config-btn');
@@ -820,6 +871,7 @@
       const noteResult = document.getElementById('note-result');
 
       let customPages = [];
+      let games = [];
 
       let config = null;
       let currentEditKey = null;
@@ -828,6 +880,8 @@
         admin:       { trigger: "ADMIN",       enabled: true },
         interactive: { trigger: "interactive", enabled: true },
         portfolio:   { trigger: "portfolio",   enabled: true },
+        chat:        { trigger: "chat",        enabled: true },
+        games:       { trigger: "game123",     enabled: true },
         custom: []
       };
 
@@ -873,6 +927,7 @@
           .then(function (data) {
             config = data;
             if (!Array.isArray(config.custom)) config.custom = [];
+            seedMissingBuiltIns();
             renderRows();
           })
           .catch(function (err) {
@@ -881,6 +936,12 @@
             noteEl.textContent = "Could not reach the Worker — showing defaults. Changes won't save until the connection works.";
             renderRows();
           });
+      }
+
+      function seedMissingBuiltIns() {
+        PAGE_ORDER.forEach(function (slug) {
+          if (!config[slug]) config[slug] = { trigger: DEFAULT_TRIGGERS[slug] || slug, enabled: true };
+        });
       }
 
       function fetchPages() {
@@ -1057,6 +1118,128 @@
         }).then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (data) {
             if (!r.ok) throw new Error(data.error ? ('Pages: ' + data.error + (data.badSlug ? ' ("' + data.badSlug + '")' : '')) : ('Pages save failed: ' + r.status));
+          });
+        });
+      }
+
+      // ---------- Games ----------
+      function fetchGames() {
+        if (!API_BASE) { games = []; renderGames(); return Promise.resolve(); }
+        return fetch(API_BASE + '/api/games')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            games = Array.isArray(data) ? data : [];
+            renderGames();
+          })
+          .catch(function (err) {
+            console.error(err);
+            games = [];
+            renderGames();
+          });
+      }
+
+      function renderGames() {
+        gamesContainer.innerHTML = '';
+        if (!games.length) {
+          const note = document.createElement('div');
+          note.id = 'games-empty-note';
+          note.textContent = 'No games yet — add one below, then hit Save Changes.';
+          gamesContainer.appendChild(note);
+          return;
+        }
+
+        games.forEach(function (game) {
+          const row = document.createElement('div');
+          row.className = 'game-row';
+
+          const titleInput = document.createElement('input');
+          titleInput.type = 'text';
+          titleInput.className = 'game-title-input';
+          titleInput.placeholder = 'Game name';
+          titleInput.maxLength = 60;
+          titleInput.value = game.title || '';
+          titleInput.addEventListener('input', function () {
+            game.title = titleInput.value;
+            statusEl.textContent = 'Unsaved changes';
+          });
+
+          const urlInput = document.createElement('input');
+          urlInput.type = 'text';
+          urlInput.className = 'game-url-input';
+          urlInput.placeholder = 'https://example.com/game/';
+          urlInput.maxLength = 500;
+          urlInput.value = game.url || '';
+          urlInput.addEventListener('input', function () {
+            game.url = urlInput.value.trim();
+            urlInput.classList.toggle('invalid', !!game.url && !/^https:\/\//i.test(game.url));
+            statusEl.textContent = 'Unsaved changes';
+          });
+          urlInput.classList.toggle('invalid', !!game.url && !/^https:\/\//i.test(game.url));
+
+          const toggleWrap = document.createElement('label');
+          toggleWrap.className = 'toggle';
+          const toggleInput = document.createElement('input');
+          toggleInput.type = 'checkbox';
+          toggleInput.checked = game.enabled !== false;
+          toggleInput.addEventListener('change', function () {
+            game.enabled = toggleInput.checked;
+            statusEl.textContent = 'Unsaved changes';
+          });
+          const slider = document.createElement('span');
+          slider.className = 'slider';
+          toggleWrap.appendChild(toggleInput);
+          toggleWrap.appendChild(slider);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn';
+          removeBtn.textContent = '✕';
+          removeBtn.title = 'Remove this game';
+          removeBtn.addEventListener('click', function () {
+            games = games.filter(function (g) { return g.id !== game.id; });
+            renderGames();
+            statusEl.textContent = 'Unsaved changes';
+          });
+
+          row.appendChild(titleInput);
+          row.appendChild(urlInput);
+          row.appendChild(toggleWrap);
+          row.appendChild(removeBtn);
+          gamesContainer.appendChild(row);
+        });
+      }
+
+      addGameBtn.addEventListener('click', function () {
+        games.push({
+          id: 'g' + Math.random().toString(36).slice(2, 9),
+          title: '',
+          url: '',
+          enabled: true
+        });
+        renderGames();
+        statusEl.textContent = 'Unsaved changes';
+      });
+
+      function saveGames() {
+        if (!API_BASE) return Promise.resolve();
+        const bad = games.find(function (g) {
+          return !g.title || !g.title.trim() || !g.url || !/^https:\/\//i.test(g.url);
+        });
+        if (bad) {
+          const idx = games.indexOf(bad) + 1;
+          return Promise.reject(new Error(
+            'Game #' + idx + ' (' + (bad.title || 'untitled') + ') needs a name and an https:// URL.'
+          ));
+        }
+        return fetch(API_BASE + '/api/games', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Edit-Key': currentEditKey || ''
+          },
+          body: JSON.stringify(games)
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) throw new Error(data.error ? ('Games: ' + data.error) : ('Games save failed: ' + r.status));
           });
         });
       }
@@ -1378,10 +1561,11 @@
         // Reported separately from pages, on purpose: a bad custom page
         // shouldn't make it look like your trigger words didn't save
         // when they actually did (or vice versa).
-        Promise.allSettled([configSave, savePages()]).then(function (results) {
+        Promise.allSettled([configSave, savePages(), saveGames()]).then(function (results) {
           const configResult = results[0];
           const pagesResult = results[1];
-          if (configResult.status === 'fulfilled' && pagesResult.status === 'fulfilled') {
+          const gamesResult = results[2];
+          if (configResult.status === 'fulfilled' && pagesResult.status === 'fulfilled' && gamesResult.status === 'fulfilled') {
             statusEl.textContent = 'Saved — live for everyone';
             setTimeout(function () { statusEl.textContent = ''; }, 2500);
           } else {
@@ -1390,6 +1574,9 @@
             else parts.push(configResult.reason && configResult.reason.message ? configResult.reason.message : 'Trigger words/redirects failed to save.');
             if (pagesResult.status === 'rejected') {
               parts.push(pagesResult.reason && pagesResult.reason.message ? pagesResult.reason.message : 'Custom pages failed to save.');
+            }
+            if (gamesResult.status === 'rejected') {
+              parts.push(gamesResult.reason && gamesResult.reason.message ? gamesResult.reason.message : 'Games failed to save.');
             }
             statusEl.textContent = parts.join(' ');
           }
@@ -1637,6 +1824,7 @@
           panel.classList.remove('hidden');
           fetchConfig();
           fetchPages();
+          fetchGames();
           fetchDashboard();
         } else {
           pwError.classList.remove('hidden');
