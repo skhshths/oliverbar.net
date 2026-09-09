@@ -175,6 +175,7 @@
       const ACCESS_KEY = "unlockedAccess";
       const HOME_PAGE = "/";
       const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
+      const PAGES_BASE = "https://pages.oliverbar.net"; // same Worker, custom-page domain
 
       // ---------- Direct-access guard ----------
       if (sessionStorage.getItem(ACCESS_KEY) !== "games") {
@@ -224,12 +225,40 @@
         });
       }
 
+      // A game hosted as one of our own Custom Pages sits behind the
+      // same single-use token as every other /page/ URL, so framing it
+      // raw would just bounce to the home page. Mint a token first, the
+      // same way index.html does before navigating to one.
+      function slugForOwnPage(url) {
+        const base = PAGES_BASE || API_BASE;
+        if (!base) return null;
+        const prefix = base + "/page/";
+        return url.indexOf(prefix) === 0 ? url.slice(prefix.length) : null;
+      }
+
+      function resolveGameUrl(url) {
+        const slug = slugForOwnPage(url);
+        if (!slug || !API_BASE) return Promise.resolve(url);
+        return fetch(API_BASE + '/api/pages/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: slug })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            const sep = url.indexOf('?') === -1 ? '?' : '&';
+            return data.token ? (url + sep + 't=' + encodeURIComponent(data.token)) : url;
+          })
+          .catch(function () { return url; });
+      }
+
       function openGame(game) {
         playerTitle.textContent = game.title;
         playerError.classList.add('hidden');
-        playerFrame.src = game.url;
+        playerFrame.src = 'about:blank';
         player.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+        resolveGameUrl(game.url).then(function (src) { playerFrame.src = src; });
 
         // Plenty of sites refuse to be framed (X-Frame-Options /
         // frame-ancestors). The browser gives us no event for that, so
