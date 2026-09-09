@@ -124,18 +124,21 @@
     background-color: #000;
   }
 
+  /* A hint, not a verdict — it sits in the corner rather than over the
+     game, because we can't actually tell a blocked frame from a slow
+     one with any certainty. */
   #player-error {
     position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    text-align: center;
-    font-size: 13px;
+    left: 14px;
+    bottom: 14px;
+    max-width: 420px;
+    padding: 10px 12px;
+    font-size: 11.5px;
     color: var(--muted);
-    line-height: 1.6;
-    pointer-events: none;
+    line-height: 1.5;
+    background: rgba(38,38,36,0.95);
+    border: 1px solid var(--border-col);
+    border-radius: 10px;
   }
   #player-error.hidden { display: none !important; }
 </style>
@@ -261,14 +264,14 @@
         resolveGameUrl(game.url).then(function (src) { playerFrame.src = src; });
 
         // Plenty of sites refuse to be framed (X-Frame-Options /
-        // frame-ancestors). The browser gives us no event for that, so
-        // this just says so after a beat if nothing has painted — the
-        // iframe stays put underneath either way.
+        // frame-ancestors), and there's no reliable event for it. So:
+        // wait for the frame to load, and only mention it if nothing
+        // has loaded at all by then. A game that works never sees this.
         if (errorTimer) clearTimeout(errorTimer);
         errorTimer = setTimeout(function () {
-          playerError.textContent = "If this is still blank, that site refuses to be embedded (X-Frame-Options). Nothing to fix on your end — it only works if the host allows framing, so try a self-hosted or embed-friendly copy instead.";
+          playerError.textContent = "Still blank? That host probably refuses to be embedded — nothing to fix on your end. A self-hosted copy (Custom Pages) always works.";
           playerError.classList.remove('hidden');
-        }, 4000);
+        }, 6000);
       }
 
       function closeGame() {
@@ -280,6 +283,14 @@
           document.exitFullscreen().catch(function () {});
         }
       }
+
+      // If anything at all loaded in the frame, the hint is wrong by
+      // definition — drop it. (about:blank resets don't count.)
+      playerFrame.addEventListener('load', function () {
+        if (!playerFrame.src || playerFrame.src === 'about:blank') return;
+        if (errorTimer) { clearTimeout(errorTimer); errorTimer = null; }
+        playerError.classList.add('hidden');
+      });
 
       playerBack.addEventListener('click', closeGame);
 
