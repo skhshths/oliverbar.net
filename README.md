@@ -4,6 +4,8 @@ A static site for Cloudflare Pages that looks like a blank black screen and does
 
 All site files live under [`site/`](./site) — that's what gets uploaded to Cloudflare Pages. The Worker backend used to live alongside it in a `worker/` folder here; it's since moved to its own repo, [oliverbar.net-api](https://github.com/skhshths/oliverbar.net-api).
 
+**New here or picking this project back up after a while?** [`DEVELOPER_GUIDE.md`](./DEVELOPER_GUIDE.md) is a full walkthrough — architecture, every KV key, every API route, local dev setup, deploying, and worked examples for common changes (new endpoint, new hidden page, new admin tab).
+
 ## How it works
 
 `index.html` renders a solid black page with no visible UI at all — no input box, nothing to click. An invisible text input silently captures every keystroke into a rolling buffer. When that buffer ends with a known trigger word, you're redirected to the matching page. Trigger words and their on/off state are fetched from the Worker on load, so changes made in the admin panel apply to every visitor immediately, not just the browser that made them.
