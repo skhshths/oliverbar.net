@@ -359,6 +359,29 @@
   }
   #dm-search-input:focus { border-color: var(--accent); }
   #dm-search-input.hidden { display: none; }
+  #delete-conversation-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #delete-conversation-btn:hover { color: var(--danger); }
+  #delete-conversation-btn.hidden { display: none; }
+
+  .thread-delete-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .thread-delete-btn:hover { color: var(--danger); }
+  .thread-item:hover .thread-delete-btn { display: block; }
 
   #pinned-strip {
     padding: 8px 18px;
@@ -645,6 +668,7 @@
             <div class="chat-header-sub" id="chat-header-sub">visible to everyone</div>
           </div>
           <input type="text" id="dm-search-input" class="hidden" placeholder="Search...">
+          <button id="delete-conversation-btn" class="hidden" type="button" title="Remove this conversation from your inbox">🗑</button>
         </div>
         <div id="pinned-strip" class="hidden"></div>
         <div id="messages"></div>
@@ -729,6 +753,7 @@
       const chatHeaderTitle = document.getElementById('chat-header-title');
       const chatHeaderSub = document.getElementById('chat-header-sub');
       const dmSearchInput = document.getElementById('dm-search-input');
+      const deleteConversationBtn = document.getElementById('delete-conversation-btn');
       const pinnedStrip = document.getElementById('pinned-strip');
       const messagesEl = document.getElementById('messages');
       const typingIndicator = document.getElementById('typing-indicator');
@@ -1152,6 +1177,7 @@
         chatHeaderSub.textContent = 'visible to everyone';
         dmSearchInput.classList.add('hidden');
         dmSearchInput.value = '';
+        deleteConversationBtn.classList.add('hidden');
         messagesEl.innerHTML = '';
         renderThreadListActiveState();
         fetchPinned();
@@ -1171,6 +1197,7 @@
         chatHeaderSub.textContent = currentOthers.length > 1 ? 'group · only visible to participants' : 'only visible to the two of you';
         dmSearchInput.classList.remove('hidden');
         dmSearchInput.value = '';
+        deleteConversationBtn.classList.remove('hidden');
         pinnedStrip.classList.add('hidden');
         messagesEl.innerHTML = '';
         markThreadRead(convId);
@@ -1181,6 +1208,21 @@
       }
 
       navGlobal.addEventListener('click', switchToGlobal);
+
+      // Removes a conversation from your own inbox only — see the
+      // Worker's /api/dm/leave for why this doesn't touch the shared
+      // history. If it's the one currently open, drop back to Global
+      // Chat afterward.
+      function deleteConversation(convId) {
+        if (!window.confirm('Remove this conversation from your inbox? If they message you again, it’ll come back.')) return;
+        api('/api/dm/leave', { method: 'POST', body: { convId: convId } }).then(function () {
+          if (currentView === 'dm' && currentConvId === convId) switchToGlobal();
+          fetchThreads();
+        }).catch(function () {});
+      }
+      deleteConversationBtn.addEventListener('click', function () {
+        if (currentConvId) deleteConversation(currentConvId);
+      });
 
       function openNewDm() {
         const raw = newDmInput.value.trim();
@@ -1660,6 +1702,17 @@
             dot.className = 'unread-dot';
             item.appendChild(dot);
           }
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'thread-delete-btn';
+          deleteBtn.textContent = '✕';
+          deleteBtn.title = 'Remove from inbox';
+          deleteBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            deleteConversation(t.convId);
+          });
+          item.appendChild(deleteBtn);
 
           threadList.appendChild(item);
         });
