@@ -814,6 +814,10 @@
                 <textarea id="maintenance-msg-input" maxlength="500" placeholder="Optional message shown to visitors (blank = a default)."></textarea>
                 <button id="maintenance-toggle-btn" class="btn-danger-outline">Turn On</button>
                 <div id="maintenance-status"></div>
+                <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border-col);">
+                  <button id="dev-bypass-btn" class="btn-ghost small">Dev bypass: OFF</button>
+                  <p class="exp-sub" style="margin-top:6px;">Lets <em>this browser</em> through the maintenance screen so you can test the live site while it's on. Per-browser and instant — no write, works even at the daily limit.</p>
+                </div>
               </div>
 
               <div class="exp-card">
@@ -933,6 +937,7 @@
       const maintenanceMsgInput = document.getElementById('maintenance-msg-input');
       const maintenanceToggleBtn = document.getElementById('maintenance-toggle-btn');
       const maintenanceStatus = document.getElementById('maintenance-status');
+      const devBypassBtn = document.getElementById('dev-bypass-btn');
       const broadcastInput = document.getElementById('broadcast-input');
       const broadcastSaveBtn = document.getElementById('broadcast-save-btn');
       const broadcastClearBtn = document.getElementById('broadcast-clear-btn');
@@ -1791,6 +1796,26 @@
       }
 
       refreshStatsBtn.addEventListener('click', fetchTriggerStats);
+
+      // ---------- Dev bypass (per-browser, no server write) ----------
+      // Shares localStorage with the entry page (same origin), which reads
+      // "devBypass" to decide whether to honour maintenance mode.
+      function renderDevBypass() {
+        let on = false;
+        try { on = localStorage.getItem('devBypass') === '1'; } catch (e) {}
+        devBypassBtn.textContent = 'Dev bypass: ' + (on ? 'ON' : 'OFF');
+        devBypassBtn.classList.toggle('btn-danger-outline', on);
+      }
+      devBypassBtn.addEventListener('click', function () {
+        let on = false;
+        try { on = localStorage.getItem('devBypass') === '1'; } catch (e) {}
+        try {
+          if (on) localStorage.removeItem('devBypass');
+          else localStorage.setItem('devBypass', '1');
+        } catch (e) {}
+        renderDevBypass();
+      });
+      renderDevBypass();
 
       // ---------- Maintenance mode ----------
       let maintenanceState = null;

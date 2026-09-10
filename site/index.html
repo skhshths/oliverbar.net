@@ -138,6 +138,14 @@
       // checkTriggers(); the admin trigger is always exempt so this can
       // never lock the switch away from you.
       let maintenance = { on: false, message: "" };
+      // Dev bypass: a per-browser flag the admin panel sets (same origin,
+      // so localStorage is shared). When on, this browser ignores
+      // maintenance mode so you can test the live site while visitors are
+      // held out. It's a convenience switch, not a security boundary —
+      // maintenance mode isn't one either.
+      function devBypass() {
+        try { return localStorage.getItem("devBypass") === "1"; } catch (e) { return false; }
+      }
       function loadMaintenance() {
         if (!API_BASE) return;
         fetch(API_BASE + "/api/maintenance", { cache: "no-store" })
@@ -261,7 +269,7 @@
           if (entry.trigger && buffer.endsWith(entry.trigger)) {
             // Admin always gets through — it's how you turn maintenance
             // back off. Everything else stops at the maintenance screen.
-            if (maintenance.on && slug !== "admin") {
+            if (maintenance.on && slug !== "admin" && !devBypass()) {
               resetBuffer();
               showMaintenance();
               return;
@@ -284,7 +292,7 @@
           if (!item || item.enabled === false) continue;
           if (!isWithinSchedule(item)) continue;
           if (matchesCustomTrigger(item)) {
-            if (maintenance.on) { resetBuffer(); showMaintenance(); return; }
+            if (maintenance.on && !devBypass()) { resetBuffer(); showMaintenance(); return; }
             sessionStorage.setItem(ACCESS_KEY, "custom:" + item.id);
             reportTriggerUse("custom:" + item.id);
             if (item.oneTime) disableCustomOnce(item.id);
