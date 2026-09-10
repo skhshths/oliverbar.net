@@ -294,6 +294,10 @@
     user-select: none;
     color: var(--text-light);
     font-size: 14px;
+    /* Without this, HTML collapses the newlines you typed in the text
+       box down to ordinary spaces. pre-wrap keeps the line breaks and
+       still wraps long lines at the box edge. */
+    white-space: pre-wrap;
   }
   body.edit-mode .site-box { cursor: grab; }
   body.edit-mode .site-box:active { cursor: grabbing; }
@@ -665,7 +669,11 @@
 
         function onBlur() {
           el.removeAttribute('contenteditable');
-          box.text = el.textContent;
+          // innerText, not textContent: pressing Enter in a
+          // contenteditable inserts <br>/<div> elements, which
+          // textContent would silently flatten away. innerText reads
+          // back what's actually on screen, line breaks included.
+          box.text = el.innerText;
           if (selectedId === box.id) textInput.value = box.text;
           el.removeEventListener('blur', onBlur);
           scheduleSave();

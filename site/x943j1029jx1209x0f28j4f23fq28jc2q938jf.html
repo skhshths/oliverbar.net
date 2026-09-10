@@ -783,6 +783,7 @@
       let blockedNames = [];
       const profileCache = {}; // lowerName -> { avatar, status }
       const presenceCache = {}; // lowerName -> { online, lastSeen }
+      const markedReadTs = {}; // convId -> newest ts we've already banked a read receipt for
       let notifiedIds = {}; // messageId -> true, so we don't double-notify
       let replyingTo = null; // { id, who, text } — the message being replied to, or null
       const UNLOCKED_KEY = "chatUnlocked"; // convIds unlocked for this tab only — sessionStorage, so closing re-locks
@@ -1356,7 +1357,15 @@
               lastMessages = items;
               lastReads = data.reads || {};
               renderMessages(applySearchFilter(items));
-              api('/api/dm/read', { method: 'POST', body: { convId: currentConvId } }).catch(function () {});
+              // Only bank a read receipt when there's actually something
+              // newer to mark. This used to fire on every poll — a KV
+              // write every few seconds for as long as a DM sat open,
+              // which on its own could drain the daily write budget.
+              const newestTs = items.length ? items[items.length - 1].ts : 0;
+              if (newestTs > (markedReadTs[currentConvId] || 0)) {
+                markedReadTs[currentConvId] = newestTs;
+                api('/api/dm/read', { method: 'POST', body: { convId: currentConvId } }).catch(function () {});
+              }
               markThreadRead(currentConvId);
             })
             .catch(function (err) { console.error('Failed to load DM:', err); });
