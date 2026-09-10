@@ -1195,6 +1195,7 @@
       // A locked conversation asks for its PIN before it will open. The
       // check is server-side; passing it only unlocks for this tab.
       function openConversation(convId, participants) {
+        if (!convId) { composeStatus.textContent = 'That conversation is missing its id.'; return; }
         const locked = lockedConvIds()[convId];
         if (!locked || isUnlocked(convId)) { switchToDm(convId, participants); return; }
         const pin = window.prompt('This conversation is locked. Enter its PIN:');
@@ -1350,6 +1351,7 @@
             })
             .catch(function (err) { console.error('Failed to load chat:', err); });
         } else {
+          if (!currentConvId) { switchToGlobal(); return; }
           api('/api/dm/messages?convId=' + encodeURIComponent(currentConvId))
             .then(function (data) {
               const items = Array.isArray(data.messages) ? data.messages : [];
@@ -1689,7 +1691,7 @@
         threadsEmpty.classList.toggle('hidden', threads.length > 0);
         const readState = readReadState();
 
-        threads.forEach(function (t) {
+        threads.filter(function (t) { return t && t.convId && Array.isArray(t.participants); }).forEach(function (t) {
           const others = (t.participants || []).filter(function (p) { return p.toLowerCase() !== myName.toLowerCase(); });
           const label = others.join(', ') || '(you)';
 
