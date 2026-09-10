@@ -138,7 +138,7 @@ nothing extra to enable for the terminal to work.
 
 ---
 
-## 6. Run both as services
+## 6. Run ttyd as a service
 
 **ttyd** — note `-i lo`, which binds it to loopback so only cloudflared (running
 on the same machine) can reach it. `login` runs as root purely so it can drop to
@@ -177,26 +177,24 @@ but a value containing both spaces and commas (a CSS font stack, say) is a
 needless thing to have to rule out when something else breaks. Add cosmetics
 once the terminal is working.
 
-**cloudflared:**
-
-```bash
-sudo cloudflared service install
-sudo systemctl enable --now cloudflared
-sudo systemctl status cloudflared --no-pager
-```
-
-Quick local check before going any further:
+Checkpoint. This is loopback only — nothing is exposed yet:
 
 ```bash
 curl -sI http://localhost:7681 | head -1     # expect: HTTP/1.1 200 OK
 ```
 
+**Do not start cloudflared yet.** The tunnel is what makes the Pi reachable and
+Access is what stands in front of it, so Access goes on first. Do step 7, then
+come back for step 8.
+
 ---
 
 ## 7. Put Cloudflare Access in front of it
 
-**Do not skip this.** Until it's done, `pi.oliverbar.net` is a login prompt
-exposed to the open internet.
+**Do this before starting the tunnel.** An Access application is defined by
+hostname and doesn't care whether the origin is live yet, so setting it up now
+means `pi.oliverbar.net` is never a bare login prompt on the open internet —
+not even for the minute it takes you to switch windows.
 
 1. Go to **one.dash.cloudflare.com** → Zero Trust. First visit asks you to pick
    a team name and a plan — **choose Free** (50 users). It may ask for a card;
@@ -216,11 +214,36 @@ for a single-user allowlist. If you want this working tonight, start with
 One-time PIN and swap to Google later; the policy stays the same.
 
 Verify: open `https://pi.oliverbar.net` in a private window. You should hit
-Cloudflare's login page, *not* a terminal.
+Cloudflare's login page, *not* a terminal. At this stage you'll see that login
+even though the tunnel isn't running — Access intercepts at Cloudflare's edge,
+before anything is asked of your origin. That's the proof it's working.
 
 ---
 
-## 8. Use it
+## 8. Start the tunnel
+
+Now that Access is in front of it:
+
+```bash
+sudo cloudflared service install
+sudo systemctl enable --now cloudflared
+sudo systemctl status cloudflared --no-pager
+```
+
+Confirm it actually connected — the CONNECTIONS column should no longer be
+empty:
+
+```bash
+cloudflared tunnel list
+```
+
+Until an instance connects, `pi.oliverbar.net` returns **HTTP 530**. That error
+means "this hostname routes to a tunnel, but nothing is attached to it," and it
+is the expected state right up until this step.
+
+---
+
+## 9. Use it
 
 Go to oliverbar.net and type **`pi5`**.
 
@@ -251,6 +274,8 @@ disable the page there entirely.
 | `apt`: ttyd *has no installation candidate* | Expected — it isn't packaged for Bookworm. Use the binary in step 2 |
 | `ttyd: command not found` after install | `ls -l /usr/local/bin/ttyd`; check it's executable |
 | Unit fails, `status=203/EXEC` | `ExecStart` path wrong — should be `/usr/local/bin/ttyd` |
+| `HTTP 530` from pi.oliverbar.net | No tunnel connected. `sudo systemctl status cloudflared`, then `cloudflared tunnel list` |
+| Tunnel authenticates as `<UUID>` | `credentials-file` in config.yml still has the placeholder |
 | Red dot, terminal blank | `sudo systemctl status cloudflared ttyd` |
 | `502 Bad Gateway` | ttyd isn't listening. `curl -sI http://localhost:7681` |
 | Terminal shows but typing does nothing | Missing `-W` on ttyd 1.7+ |
