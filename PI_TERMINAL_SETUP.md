@@ -360,6 +360,80 @@ cloudflared tunnel info pi-terminal
 
 ---
 
+## 10. Remote lockdown (optional)
+
+A kill switch in the admin panel that stops `ttyd` on the Pi, dropping anyone
+mid-session and refusing new connections until you unlock it. It works by
+setting a flag in the Worker that a small poller on the Pi reads.
+
+Understand the split before relying on it. The admin button and the terminal
+page only ever set and reflect a flag; **stopping `ttyd` on the Pi is the part
+that actually severs live sessions.** Without the poller below, "lockdown" only
+blanks the website — a browser holding cached credentials for
+`pi.oliverbar.net` sails right past it. The poller is the enforcement.
+
+**Warning:** this installs a service whose job is to stop the very thing the web
+terminal runs on. If you set it up *through* the web terminal, make sure you
+have another way in first (SSH on your LAN, or a keyboard on the Pi). A lockdown
+that leaves `ttyd` stopped locks you out of the web terminal until you unlock it
+from a browser — and if the poller itself is wedged, until you reach the Pi
+physically.
+
+**The poller script** — polls the flag every 10s and starts/stops `ttyd` to
+match. On a network error it leaves things exactly as they are, so a blip never
+flips the state on its own:
+
+```bash
+sudo tee /usr/local/bin/pi-lockdown-check >/dev/null <<'EOF' && sudo chmod +x /usr/local/bin/pi-lockdown-check
+#!/bin/bash
+while true; do
+  RESP=$(curl -fsS --max-time 10 https://api.oliverbar.net/api/pi/lockdown) || { sleep 10; continue; }
+  case "$RESP" in
+    *'"locked":true'*)  systemctl is-active --quiet ttyd && systemctl stop  ttyd ;;
+    *'"locked":false'*) systemctl is-active --quiet ttyd || systemctl start ttyd ;;
+  esac
+  sleep 10
+done
+EOF
+```
+
+**The service:**
+
+```bash
+sudo tee /etc/systemd/system/pi-lockdown.service >/dev/null <<'EOF'
+[Unit]
+Description=Pi terminal lockdown poller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/pi-lockdown-check
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now pi-lockdown
+systemctl is-active pi-lockdown          # expect: active
+```
+
+Because it's `enable`d it also comes back on reboot, alongside `ttyd` and
+`cloudflared` — a power-cycle needs no commands, the tunnel reconnects itself.
+
+To lock down: admin panel → Dashboard → **Pi Terminal Lockdown → LOCKDOWN**.
+Sessions drop within ~10s. Unlock from the same place — never from the terminal,
+since you won't have one. Propagation is typically ~10s but isn't guaranteed
+instant (the flag lives in Cloudflare KV, which is eventually consistent).
+
+For an instant, no-waiting kill, stop the tunnel itself at the Pi:
+`sudo systemctl stop cloudflared`. That drops all remote access immediately.
+
+---
+
 ## If you want to tighten it further
 
 - **A dedicated user.** Make a `console` account without sudo, and have ttyd run

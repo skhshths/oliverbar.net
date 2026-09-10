@@ -899,6 +899,7 @@
       const noteResult = document.getElementById('note-result');
 
       let customPages = [];
+      let savedPageSlugs = []; // slugs known to exist server-side, for delete diffing
       let games = [];
 
       let config = null;
@@ -980,11 +981,13 @@
           .then(function (r) { return r.json(); })
           .then(function (data) {
             customPages = Array.isArray(data) ? data : [];
+            savedPageSlugs = customPages.map(function (p) { return p.slug; });
             renderPages();
           })
           .catch(function (err) {
             console.error(err);
             customPages = [];
+            savedPageSlugs = [];
             renderPages();
           });
       }
@@ -1138,17 +1141,48 @@
             'lowercase/number/dash/slash path and non-empty HTML.'
           ));
         }
-        return fetch(API_BASE + '/api/pages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Edit-Key': currentEditKey || ''
-          },
-          body: JSON.stringify(customPages)
-        }).then(function (r) {
-          return r.json().catch(function () { return {}; }).then(function (data) {
-            if (!r.ok) throw new Error(data.error ? ('Pages: ' + data.error + (data.badSlug ? ' ("' + data.badSlug + '")' : '')) : ('Pages save failed: ' + r.status));
+        // Save one page per request instead of the whole array in one body.
+        // The old bulk POST broke as soon as a few pages got large — a single
+        // request carrying tens of KB of HTML is refused upstream before it
+        // reaches the Worker. Pages are also deleted explicitly now, since
+        // the old save removed a page just by leaving it out of the array.
+        const headers = { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' };
+        const currentSlugs = customPages.map(function (p) { return p.slug; });
+        const toDelete = savedPageSlugs.filter(function (s) { return currentSlugs.indexOf(s) === -1; });
+
+        function postOne(path, payload) {
+          return fetch(API_BASE + path, {
+            method: 'POST', headers: headers, body: JSON.stringify(payload)
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (data) {
+              if (!r.ok) throw new Error(data.error || (path + ' failed: ' + r.status));
+              return data;
+            });
           });
+        }
+
+        // Sequentially — Cloudflare rate-limits bursts of POSTs, and a serial
+        // chain keeps each request small and spaced instead of firing a dozen
+        // at once.
+        let chain = Promise.resolve();
+        customPages.forEach(function (p) {
+          chain = chain.then(function () {
+            return postOne('/api/pages/one', { slug: p.slug, html: p.html }).catch(function (e) {
+              throw new Error('Page "' + p.slug + '": ' + e.message);
+            });
+          });
+        });
+        toDelete.forEach(function (slug) {
+          chain = chain.then(function () {
+            return postOne('/api/pages/delete', { slug: slug }).catch(function (e) {
+              throw new Error('Deleting "' + slug + '": ' + e.message);
+            });
+          });
+        });
+        return chain.then(function () {
+          // Server now matches what's on screen; refresh the baseline so a
+          // second save in the same session diffs deletions correctly.
+          savedPageSlugs = currentSlugs.slice();
         });
       }
 
