@@ -144,26 +144,38 @@ nothing extra to enable for the terminal to work.
 on the same machine) can reach it. `login` runs as root purely so it can drop to
 whichever user authenticates; your shell is *not* root unless you log in as root.
 
+Let the shell fill in the binary's path rather than hardcoding it — that's
+`$TTYD` below, and note this heredoc is deliberately unquoted so it expands:
+
 ```bash
-sudo tee /etc/systemd/system/ttyd.service >/dev/null <<'EOF'
+TTYD=$(command -v ttyd) && echo "using $TTYD" && sudo tee /etc/systemd/system/ttyd.service >/dev/null <<EOF
 [Unit]
 Description=ttyd terminal server (loopback only)
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/ttyd -W -p 7681 -i lo -t fontSize=15 -t fontFamily='ui-monospace, Menlo, Consolas, monospace' login
+ExecStart=$TTYD -W -p 7681 -i lo -t fontSize=15 login
 Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
+```
 
+If that prints no path, ttyd isn't installed — go back to step 2.
+
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now ttyd
 sudo systemctl status ttyd --no-pager
 ```
+
+Keep extra `-t` client options simple. `ExecStart` supports quoted arguments,
+but a value containing both spaces and commas (a CSS font stack, say) is a
+needless thing to have to rule out when something else breaks. Add cosmetics
+once the terminal is working.
 
 **cloudflared:**
 
