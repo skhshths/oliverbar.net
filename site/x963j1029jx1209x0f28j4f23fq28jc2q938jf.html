@@ -95,17 +95,17 @@
     <iframe id="term" title="Raspberry Pi terminal" allow="clipboard-read; clipboard-write"></iframe>
     <div id="firstrun" class="hidden">
       <div class="card">
-        <h1>Sign in to Cloudflare Access first</h1>
+        <h1>Sign in once in a new tab</h1>
         <p>
-          The terminal sits behind a Google login that Cloudflare checks before
-          any request reaches the Pi. That login cannot run inside a frame, so it
-          has to happen once in its own tab.
+          The terminal asks for a password before it gives you a shell, and
+          browsers refuse to show that prompt inside a frame &mdash; so the first
+          sign-in has to happen in a tab of its own.
         </p>
         <ol>
           <li>Open the terminal in a new tab.</li>
-          <li>Sign in with Google, then enter your Pi login when <code>ttyd</code> asks.</li>
-          <li>Come back here &mdash; the session cookie is shared across
-              <code>oliverbar.net</code>, so it loads inline from then on.</li>
+          <li>Enter the terminal password, then your Pi login when the shell asks.</li>
+          <li>Come back here &mdash; the browser remembers the credentials for
+              <code>pi.oliverbar.net</code>, so it loads inline from then on.</li>
         </ol>
         <div class="row">
           <button type="button" id="firstrun-open" class="primary">Open in a new tab</button>

@@ -27,10 +27,12 @@ browser ──► pi.oliverbar.net ──► Cloudflare Access (Google login)
 This gives a shell on a machine inside your house to anyone who gets past the
 front door. Two independent locks stand in front of it:
 
-1. **Cloudflare Access** — checks a Google login at Cloudflare's edge. Requests
-   that fail never reach your Pi at all.
+1. **An outer gate** — either Cloudflare Access, which checks a login at
+   Cloudflare's edge so failed attempts never reach your Pi at all, or ttyd's
+   own basic auth if Access isn't available to you. Step 7 covers both, and is
+   candid about the difference.
 2. **`login`** — ttyd hands you the Pi's own login prompt, so a real Unix
-   username and password are still required.
+   username and password are still required regardless.
 
 Two things make this materially safer, and they're worth doing:
 
@@ -189,34 +191,101 @@ come back for step 8.
 
 ---
 
-## 7. Put Cloudflare Access in front of it
+## 7. Put authentication in front of it
 
-**Do this before starting the tunnel.** An Access application is defined by
-hostname and doesn't care whether the origin is live yet, so setting it up now
-means `pi.oliverbar.net` is never a bare login prompt on the open internet —
-not even for the minute it takes you to switch windows.
+**Do this before starting the tunnel.** Step 8 is what makes the Pi publicly
+reachable, so whatever is guarding it should already be in place — there's no
+reason to accept even a few minutes of a bare shell on the open internet.
 
-1. Go to **one.dash.cloudflare.com** → Zero Trust. First visit asks you to pick
-   a team name and a plan — **choose Free** (50 users). It may ask for a card;
-   the free plan doesn't charge it.
+There are two ways to do this, and which one you get depends on something
+outside your control.
+
+### 7a. Cloudflare Access — better, but it may want a card
+
+Access checks a login at Cloudflare's edge, so failed attempts never reach your
+Pi at all. That's a genuine security difference, not a cosmetic one.
+
+The Zero Trust **Free** plan covers 50 users at $0. However, signup can still
+demand a payment method before it will let you in. If it does and you don't
+want to provide one, skip to 7b — the plan itself is free, but the gate is
+the gate.
+
+1. **one.dash.cloudflare.com** → Zero Trust → pick a team name → **Free**.
 2. **Access → Applications → Add an application → Self-hosted.**
-3. Application name: `Pi Terminal`. Session duration: **24 hours** is a
-   reasonable balance.
+3. Name `Pi Terminal`; session duration 24 hours is a reasonable balance.
 4. Public hostname: subdomain `pi`, domain `oliverbar.net`.
-5. Add a policy: name it `Me`, action **Allow**, and under Include choose
-   **Emails** → `oliverbarnet12@gmail.com`.
-6. Under login methods, pick your identity provider and save.
+5. Policy: name `Me`, action **Allow**, Include → **Emails** → your address.
+6. Login method: **One-time PIN** needs no configuration at all (Cloudflare
+   emails a 6-digit code) and is exactly as strong as Google SSO for a
+   single-address allowlist. Google needs an OAuth client set up first.
 
-**On identity providers:** Google SSO needs a Google Cloud OAuth client set up
-in Zero Trust first — a few extra minutes. **One-time PIN** works with zero
-configuration (Cloudflare emails you a 6-digit code) and is exactly as strong
-for a single-user allowlist. If you want this working tonight, start with
-One-time PIN and swap to Google later; the policy stays the same.
+Verify by opening `https://pi.oliverbar.net` in a private window: you should get
+Cloudflare's login page, *not* a terminal — and you'll get it even though the
+tunnel isn't running yet, because Access intercepts before your origin is ever
+consulted. That's the proof it works.
 
-Verify: open `https://pi.oliverbar.net` in a private window. You should hit
-Cloudflare's login page, *not* a terminal. At this stage you'll see that login
-even though the tunnel isn't running — Access intercepts at Cloudflare's edge,
-before anything is asked of your origin. That's the proof it's working.
+### 7b. Two passwords, no Zero Trust
+
+If Access is out of reach, put ttyd's own basic auth in front of the system
+login. Two independent passwords, no account needed.
+
+Be honest about the trade: without Access, every request *does* reach your Pi,
+and ttyd itself becomes the outermost defence. That's weaker. It is not
+nothing — but keep ttyd updated, because it's now exposed.
+
+Generate a password, and put it in a password manager rather than anywhere it
+might be logged:
+
+```bash
+openssl rand -base64 24
+```
+
+Rewrite the unit with `-c user:password` and `-m 2` to cap concurrent sessions:
+
+```bash
+sudo tee /etc/systemd/system/ttyd.service >/dev/null <<'EOF'
+[Unit]
+Description=ttyd terminal server (loopback only)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/ttyd -W -p 7681 -i lo -m 2 -c oliver:PASSWORD_HERE -t fontSize=15 login
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+```bash
+sudo chmod 600 /etc/systemd/system/ttyd.service
+sudo systemctl daemon-reload && sudo systemctl restart ttyd
+```
+
+The `chmod 600` is not optional — unit files are world-readable by default and
+this one now holds a password.
+
+Confirm the auth is actually enforced. This must return **401**, not 200:
+
+```bash
+curl -sI http://localhost:7681 | head -1
+```
+
+A 200 here means `-c` didn't take, and starting the tunnel would expose an
+unauthenticated shell. Fix it before going on.
+
+Then add a free WAF rule as a second layer: Cloudflare dashboard → **Security →
+WAF → Custom rules**. Block anything to `pi.oliverbar.net` whose country isn't
+yours. The free plan includes a handful of custom rules and this removes
+essentially all drive-by scanning.
+
+**To rotate the password later:**
+
+```bash
+NEW=$(openssl rand -base64 24) && sudo sed -i "s|-c oliver:[^ ]*|-c oliver:$NEW|" /etc/systemd/system/ttyd.service && sudo systemctl daemon-reload && sudo systemctl restart ttyd && echo "new password: $NEW"
+```
 
 ---
 
