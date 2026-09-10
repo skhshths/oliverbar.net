@@ -704,6 +704,11 @@
       const THREADS_POLL_MS = 10000;
       const PRESENCE_PING_MS = 60000;
       const PROFILE_REFRESH_MS = 30000;
+      const GLOBAL_MENTION_POLL_MS = 15000; // slow background check for @mentions while you're inside a DM
+      const BASE_TITLE = "."; // what the tab title sits at normally
+      const FLASH_TITLE = "NEW MESSAGE";
+      const FLASH_TOTAL_MS = 3000;
+      const FLASH_STEP_MS = 500;
       const REMEMBER_KEY = "chatIdentity"; // localStorage convenience only, not a security boundary
       const SESSION_KEY = "chatSession"; // { token, name } — this is what makes login persist
       const READ_STATE_KEY = "chatReadState"; // { [threadKeyLower]: lastReadTs }, for the unread dots
@@ -785,6 +790,12 @@
       const presenceCache = {}; // lowerName -> { online, lastSeen }
       const markedReadTs = {}; // convId -> newest ts we've already banked a read receipt for
       let notifiedIds = {}; // messageId -> true, so we don't double-notify
+      const seededNotify = {}; // 'global' / 'dm:<convId>' -> true once we've seen that view's history
+      const threadFlashTs = {}; // convId -> newest lastTs we've already reacted to
+      let threadFlashSeeded = false;
+      let globalMentionTimer = null;
+      let flashStepTimer = null;
+      let flashStopTimer = null;
       let replyingTo = null; // { id, who, text } — the message being replied to, or null
       const UNLOCKED_KEY = "chatUnlocked"; // convIds unlocked for this tab only — sessionStorage, so closing re-locks
       const STARRED_KEY = "chatStarred"; // { [messageId]: true } — purely a client-side bookmark, not synced
@@ -993,6 +1004,7 @@
         presencePingTimer = setInterval(pingPresence, PRESENCE_PING_MS);
 
         profileRefreshTimer = setInterval(refreshVisibleProfiles, PROFILE_REFRESH_MS);
+        globalMentionTimer = setInterval(checkGlobalMentions, GLOBAL_MENTION_POLL_MS);
 
         switchToGlobal();
       }
@@ -1166,6 +1178,29 @@
         if (!document.hidden) return;
         try { new Notification(title, { body: body }); } catch (e) {}
       }
+
+      // Blink the tab title for a few seconds so an unattended tab shows
+      // something happened. Calling this again mid-flash restarts the
+      // three seconds rather than stacking a second set of timers.
+      function stopTitleFlash() {
+        if (flashStepTimer) { clearInterval(flashStepTimer); flashStepTimer = null; }
+        if (flashStopTimer) { clearTimeout(flashStopTimer); flashStopTimer = null; }
+        document.title = BASE_TITLE;
+      }
+      function flashTitle() {
+        stopTitleFlash();
+        let on = true;
+        document.title = FLASH_TITLE;
+        flashStepTimer = setInterval(function () {
+          on = !on;
+          document.title = on ? FLASH_TITLE : BASE_TITLE;
+        }, FLASH_STEP_MS);
+        flashStopTimer = setTimeout(stopTitleFlash, FLASH_TOTAL_MS);
+      }
+      // Once you're actually looking at the page the blinking has done its job.
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && flashStepTimer) stopTitleFlash();
+      });
 
       // ---------- View switching ----------
       function cancelReply() {
@@ -1376,17 +1411,39 @@
       }
 
       function handleNewMessageNotifications(items, scope) {
+        // The first poll for a view is its back catalogue, not news — bank the
+        // ids so we don't fire a notification for every message already there.
+        const seedKey = scope === 'global' ? 'global' : 'dm:' + currentConvId;
+        const isHistory = !seededNotify[seedKey];
+        seededNotify[seedKey] = true;
+
         items.forEach(function (m) {
           const who = scope === 'global' ? m.name : m.from;
           if (who === myName || notifiedIds[m.id]) return;
           notifiedIds[m.id] = true;
-          if (m.deleted) return;
+          if (m.deleted || isHistory) return;
           if (scope === 'dm') {
             notify(who, m.text);
+            // You're looking straight at this conversation, so only blink
+            // when the tab is in the background.
+            if (document.hidden) flashTitle();
           } else if (mentionsMe(m.text)) {
             notify(who + ' mentioned you', m.text);
+            if (document.hidden || currentView !== 'global') flashTitle();
           }
         });
+      }
+
+      // Global chat isn't polled while you're reading a DM, so check it on a
+      // slow timer purely to catch @mentions.
+      function checkGlobalMentions() {
+        if (currentView === 'global') return; // the main poll already covers it
+        fetch(API_BASE + '/api/chat')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            handleNewMessageNotifications(Array.isArray(data) ? data : [], 'global');
+          })
+          .catch(function () {});
       }
 
       function applySearchFilter(items) {
@@ -1685,7 +1742,27 @@
         api('/api/dm/threads').then(function (data) { renderThreads(Array.isArray(data) ? data : []); }).catch(function () {});
       }
 
+      // A DM or group message landing in a conversation you don't currently
+      // have open only shows up in the thread poll, so that's where we catch it.
+      function checkThreadsForFlash(threads) {
+        let flash = false;
+        threads.forEach(function (t) {
+          if (!t || !t.convId) return;
+          const ts = t.lastTs || 0;
+          if (ts <= (threadFlashTs[t.convId] || 0)) return;
+          threadFlashTs[t.convId] = ts;
+          if (!threadFlashSeeded) return; // first pass is just the existing inbox
+          if (t.lastFrom === myName) return;
+          // If it's the conversation on screen and you're here, you saw it.
+          if (currentView === 'dm' && currentConvId === t.convId && !document.hidden) return;
+          flash = true;
+        });
+        threadFlashSeeded = true;
+        if (flash) flashTitle();
+      }
+
       function renderThreads(threads) {
+        checkThreadsForFlash(threads);
         latestThreads = threads;
         threadList.innerHTML = '';
         threadsEmpty.classList.toggle('hidden', threads.length > 0);
