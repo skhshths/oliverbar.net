@@ -581,6 +581,19 @@
   #backup-card .btn-ghost.small { display: inline-block; margin-right: 8px; }
   #import-status { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 
+  /* --- Pi terminal lockdown --- */
+  #lockdown-card { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-col); }
+  #lockdown-state { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+  #lockdown-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--border-col); color: var(--muted);
+  }
+  #lockdown-badge.on { border-color: var(--danger); color: var(--danger); }
+  #lockdown-badge.off { border-color: #3f7a3f; color: #6cc067; }
+  #lockdown-since { font-size: 11.5px; color: var(--muted); }
+  #lockdown-status { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+
   /* --- KV inspector + secret notes (Experimental) --- */
   #kv-inspector-row { display: flex; gap: 8px; margin-bottom: 8px; }
   #kv-inspector-select {
@@ -682,6 +695,17 @@
                 <div class="exp-big" id="dash-top-trigger" style="font-size: 22px;">—</div>
                 <div class="exp-sub" id="dash-top-trigger-count"></div>
               </div>
+            </div>
+
+            <div id="lockdown-card">
+              <h2>Pi Terminal Lockdown</h2>
+              <p class="subtitle">Kills remote terminal access to the Raspberry Pi. Anyone mid-command is dropped, not just blocked from starting a new session, and it stays off until you unlock it here. Nobody needs to reload anything &mdash; the page reacts within ~5 seconds and the Pi itself within ~10.</p>
+              <div id="lockdown-state">
+                <span id="lockdown-badge">checking&hellip;</span>
+                <span id="lockdown-since"></span>
+              </div>
+              <button id="lockdown-btn" class="btn-danger-outline">LOCKDOWN</button>
+              <div id="lockdown-status"></div>
             </div>
 
             <div id="backup-card">
@@ -860,6 +884,10 @@
       const dashTopTriggerCount = document.getElementById('dash-top-trigger-count');
       const enableAllBtn = document.getElementById('enable-all-btn');
       const disableAllBtn = document.getElementById('disable-all-btn');
+      const lockdownBadge = document.getElementById('lockdown-badge');
+      const lockdownSince = document.getElementById('lockdown-since');
+      const lockdownBtn = document.getElementById('lockdown-btn');
+      const lockdownStatus = document.getElementById('lockdown-status');
       const exportBtn = document.getElementById('export-btn');
       const importFileInput = document.getElementById('import-file-input');
       const importStatus = document.getElementById('import-status');
@@ -901,6 +929,7 @@
 
         if (tab === 'dashboard') {
           fetchDashboard();
+          fetchLockdown();
         } else if (tab === 'chat') {
           fetchAccounts();
         } else if (tab === 'experimental') {
@@ -1696,6 +1725,79 @@
           .catch(function (err) { console.error(err); });
       }
 
+      // ---------- Pi terminal lockdown ----------
+      // Writes one flag. Two independent readers act on it: the terminal
+      // page blanks its frame, and a poller on the Pi stops ttyd. The second
+      // one is what actually matters — the page can't revoke basic-auth
+      // credentials a browser already holds, and it doesn't exist at all for
+      // someone who goes straight to pi.oliverbar.net.
+      let lockdownState = null;
+
+      function renderLockdown(state) {
+        lockdownState = state;
+        if (!state) {
+          lockdownBadge.textContent = 'unknown';
+          lockdownBadge.className = '';
+          lockdownSince.textContent = '';
+          lockdownBtn.textContent = 'LOCKDOWN';
+          return;
+        }
+        if (state.locked) {
+          lockdownBadge.textContent = 'LOCKED';
+          lockdownBadge.className = 'on';
+          lockdownBtn.textContent = 'Unlock';
+        } else {
+          lockdownBadge.textContent = 'OPEN';
+          lockdownBadge.className = 'off';
+          lockdownBtn.textContent = 'LOCKDOWN';
+        }
+        lockdownSince.textContent = state.since
+          ? 'since ' + new Date(state.since).toLocaleString()
+          : '';
+      }
+
+      function fetchLockdown() {
+        if (!API_BASE) return;
+        fetch(API_BASE + '/api/pi/lockdown', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(renderLockdown)
+          .catch(function (err) {
+            console.error('Could not read lockdown state:', err);
+            renderLockdown(null);
+            lockdownStatus.textContent = 'Could not reach the API to read the current state.';
+          });
+      }
+
+      function setLockdown(locked) {
+        lockdownBtn.disabled = true;
+        lockdownStatus.textContent = locked ? 'Locking down…' : 'Unlocking…';
+        fetch(API_BASE + '/api/pi/lockdown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
+          body: JSON.stringify({ locked: locked })
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (state) {
+            renderLockdown(state);
+            lockdownStatus.textContent = state.locked
+              ? 'Locked. Open sessions drop within ~10 seconds.'
+              : 'Unlocked. The Pi restarts ttyd within ~10 seconds.';
+          })
+          .catch(function (err) {
+            console.error('Lockdown toggle failed:', err);
+            lockdownStatus.textContent = 'Failed: ' + err.message + '. Nothing changed.';
+          })
+          .then(function () { lockdownBtn.disabled = false; });
+      }
+
+      lockdownBtn.addEventListener('click', function () {
+        if (!lockdownState) { fetchLockdown(); return; }
+        setLockdown(!lockdownState.locked);
+      });
+
       // ---------- Dashboard ----------
       function fetchDashboard() {
         if (!API_BASE) return;
@@ -1827,6 +1929,7 @@
           fetchPages();
           fetchGames();
           fetchDashboard();
+          fetchLockdown();
         } else {
           pwError.classList.remove('hidden');
           modalBox.classList.remove('shake');

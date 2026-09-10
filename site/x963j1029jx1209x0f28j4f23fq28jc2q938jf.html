@@ -78,6 +78,25 @@
   #firstrun button.primary { background: var(--accent); color: #141413; border-color: var(--accent); font-weight: 600; }
   #firstrun button.primary:hover { background: #c96442; color: var(--text); }
   #firstrun button:hover { color: var(--text); }
+
+  #lockdown {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,20,19,0.975); padding: 24px;
+  }
+  #lockdown.hidden { display: none; }
+  #lockdown .card {
+    max-width: 420px; background: var(--panel);
+    border: 1px solid #6b2f2f; border-radius: 12px;
+    padding: 22px 24px; text-align: center;
+  }
+  #lockdown h1 {
+    margin: 0 0 10px; font-size: 18px;
+    color: #e07a7a; letter-spacing: 1.5px;
+  }
+  #lockdown p { margin: 0 0 10px; font-size: 13px; line-height: 1.65; color: var(--muted); }
+  #lockdown .since { margin: 0; font-size: 11px; color: #6f6d66; }
+  #bar.locked button { opacity: 0.35; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -113,6 +132,16 @@
         </div>
       </div>
     </div>
+    <div id="lockdown" class="hidden">
+      <div class="card">
+        <h1>LOCKED DOWN</h1>
+        <p>
+          Remote terminal access is switched off from the admin panel. Open
+          sessions were closed and new ones are being refused.
+        </p>
+        <p class="since" id="lockdown-since"></p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -123,6 +152,8 @@
     // The hostname Cloudflare Tunnel maps to ttyd on the Pi. Change this
     // if you ever rename the tunnel route.
     const PI_HOST = "https://pi.oliverbar.net";
+    const API_BASE = "https://api.oliverbar.net";
+    const LOCKDOWN_POLL_MS = 5000;
 
     const ACCESS_KEY = "unlockedAccess";
     const HOME_PAGE = "/";
@@ -167,6 +198,7 @@
     // design), so the dot is a separate no-cors ping. It says the tunnel is
     // up. It cannot say the shell is happy.
     function ping() {
+      if (locked) return; // the dot belongs to the lockdown state while locked
       const started = Date.now();
       fetch(PI_HOST + "/", { mode: "no-cors", cache: "no-store" })
         .then(function () {
@@ -208,11 +240,71 @@
       load();
     });
 
-    if (hasSignedIn()) {
-      load();
-    } else {
-      firstrun.classList.remove("hidden");
+    // ---------- Lockdown ----------
+    // The admin panel flips a flag; this blanks the frame within a poll.
+    // Understand what this is and isn't: it locks *this page*. It cannot
+    // revoke the basic-auth credentials a browser has already cached for
+    // pi.oliverbar.net, and it does nothing to someone who bookmarked that
+    // host directly. The poller on the Pi that stops ttyd is the real
+    // enforcement; this half just makes the page reflect it immediately
+    // instead of leaving a dead frame on screen.
+    const lockdownEl = document.getElementById("lockdown");
+    const lockdownSince = document.getElementById("lockdown-since");
+    const bar = document.getElementById("bar");
+    let locked = false;
+    let pageStarted = false;
+
+    function startup() {
+      if (pageStarted || locked) return;
+      pageStarted = true;
+      if (hasSignedIn()) {
+        load();
+      } else {
+        firstrun.classList.remove("hidden");
+      }
     }
+
+    function applyLockdown(isLocked, since) {
+      if (isLocked === locked) return; // nothing changed, don't churn the frame
+      locked = isLocked;
+      if (locked) {
+        frame.src = "about:blank"; // drop the live session out of the DOM
+        firstrun.classList.add("hidden");
+        lockdownEl.classList.remove("hidden");
+        bar.classList.add("locked");
+        lockdownSince.textContent = since
+          ? "Locked at " + new Date(since).toLocaleString()
+          : "";
+        dot.className = "down";
+        dot.title = "Locked down from the admin panel";
+      } else {
+        lockdownEl.classList.add("hidden");
+        bar.classList.remove("locked");
+        pageStarted = false; // let startup() run again and rebuild the frame
+        startup();
+        ping();
+      }
+    }
+
+    function pollLockdown() {
+      fetch(API_BASE + "/api/pi/lockdown", { cache: "no-store" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          applyLockdown(!!d.locked, d.since);
+          startup();
+        })
+        .catch(function () {
+          // API unreachable: leave the current state alone and let the page
+          // open. Failing closed here would brick the page during an
+          // unrelated Worker outage, and it would buy nothing — if the API
+          // is down, the Pi's poller can't confirm a lockdown either, so a
+          // stopped ttyd stays stopped regardless of what this page shows.
+          startup();
+        });
+    }
+
+    pollLockdown();
+    setInterval(pollLockdown, LOCKDOWN_POLL_MS);
     ping();
     setInterval(ping, 30000);
   })();
