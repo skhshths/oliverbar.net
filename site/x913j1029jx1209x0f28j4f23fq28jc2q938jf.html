@@ -811,12 +811,12 @@
         return base + '/page/' + (slug || '');
       }
 
-      const PAGE_ORDER = ["admin", "interactive", "portfolio", "chat", "games"];
-      const PAGE_LABELS = { admin: "Admin", interactive: "Interactive", portfolio: "Portfolio", chat: "Chat", games: "Games" };
+      const PAGE_ORDER = ["admin", "interactive", "portfolio", "chat", "games", "pi"];
+      const PAGE_LABELS = { admin: "Admin", interactive: "Interactive", portfolio: "Portfolio", chat: "Chat", games: "Games", pi: "Pi Terminal" };
       // Used to seed a built-in page that isn't in a stored config yet
       // (e.g. Games, added after this site was first deployed) so its
       // trigger word isn't blank and blocking every save.
-      const DEFAULT_TRIGGERS = { admin: "ADMIN", interactive: "interactive", portfolio: "portfolio", chat: "chat", games: "game123" };
+      const DEFAULT_TRIGGERS = { admin: "ADMIN", interactive: "interactive", portfolio: "portfolio", chat: "chat", games: "game123", pi: "pi5" };
       const ADMIN_FIXED_TRIGGER = "ADMIN"; // matches the Worker's hardcoded value; display-only here
 
       // ---------- Direct-access guard ----------
@@ -882,6 +882,7 @@
         portfolio:   { trigger: "portfolio",   enabled: true },
         chat:        { trigger: "chat",        enabled: true },
         games:       { trigger: "game123",     enabled: true },
+        pi:          { trigger: "pi5",         enabled: true },
         custom: []
       };
 

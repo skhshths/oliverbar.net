@@ -1,0 +1,250 @@
+# Raspberry Pi terminal — setup runbook
+
+A browser terminal into the Pi 5 at your house, reached from oliverbar.net by
+typing the `pi5` trigger.
+
+Nothing here opens a port on your router. The Pi dials *out* to Cloudflare and
+holds that connection open; Cloudflare routes `pi.oliverbar.net` back down it.
+Your home IP is never exposed.
+
+```
+browser ──► pi.oliverbar.net ──► Cloudflare Access (Google login)
+                                        │
+                                        ▼  (only if you pass)
+                                 Cloudflare edge
+                                        │
+                                        ▼  outbound tunnel, already open
+                                  cloudflared on the Pi
+                                        │
+                                        ▼  localhost only
+                                   ttyd ──► login ──► your shell
+```
+
+---
+
+## Read this part before you start
+
+This gives a shell on a machine inside your house to anyone who gets past the
+front door. Two independent locks stand in front of it:
+
+1. **Cloudflare Access** — checks a Google login at Cloudflare's edge. Requests
+   that fail never reach your Pi at all.
+2. **`login`** — ttyd hands you the Pi's own login prompt, so a real Unix
+   username and password are still required.
+
+Two things make this materially safer, and they're worth doing:
+
+- **Give the account a strong password.** It is now internet-reachable in
+  effect. If it's still `raspberry`, change it: `passwd`.
+- **Bind ttyd to loopback** (the config below does this). Nothing on your LAN
+  can reach it directly either — the tunnel is the only way in.
+
+**Kill switch:** `sudo systemctl stop cloudflared` severs all remote access
+instantly. Everything else keeps running.
+
+---
+
+## 1. Check your architecture
+
+```bash
+dpkg --print-architecture
+```
+
+A Pi 5 on 64-bit Pi OS says `arm64`. If it says `armhf` you're on the 32-bit
+build — substitute `armhf` for `arm64` in step 3.
+
+---
+
+## 2. Install ttyd
+
+```bash
+sudo apt update && sudo apt install -y ttyd
+ttyd --version
+```
+
+**Note the version.** From 1.7.0 onward ttyd is read-only unless you pass `-W`,
+which is why it's in the unit file below. If yours is 1.6.x or older, drop the
+`-W` — it won't recognise the flag and won't start.
+
+---
+
+## 3. Install cloudflared
+
+```bash
+curl -L -o /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i /tmp/cloudflared.deb
+cloudflared --version
+```
+
+---
+
+## 4. Create the tunnel
+
+```bash
+cloudflared tunnel login
+```
+
+This prints a URL. Open it, and pick **oliverbar.net** from the list. It writes
+a certificate to `~/.cloudflared/cert.pem`.
+
+```bash
+cloudflared tunnel create pi-terminal
+```
+
+It prints a UUID and the path to a credentials JSON file. **Copy that UUID** —
+the next step needs it.
+
+```bash
+cloudflared tunnel route dns pi-terminal pi.oliverbar.net
+```
+
+That creates the DNS record for you. No dashboard clicking needed.
+
+---
+
+## 5. Configure the tunnel
+
+Replace `<UUID>` with the one from step 4:
+
+```bash
+sudo mkdir -p /etc/cloudflared
+sudo cp ~/.cloudflared/<UUID>.json /etc/cloudflared/
+sudo tee /etc/cloudflared/config.yml >/dev/null <<'EOF'
+tunnel: pi-terminal
+credentials-file: /etc/cloudflared/<UUID>.json
+
+ingress:
+  - hostname: pi.oliverbar.net
+    service: http://localhost:7681
+  - service: http_status:404
+EOF
+sudo nano /etc/cloudflared/config.yml   # paste the real UUID into credentials-file
+```
+
+WebSocket upgrades pass through an `http://` ingress automatically — there's
+nothing extra to enable for the terminal to work.
+
+---
+
+## 6. Run both as services
+
+**ttyd** — note `-i lo`, which binds it to loopback so only cloudflared (running
+on the same machine) can reach it. `login` runs as root purely so it can drop to
+whichever user authenticates; your shell is *not* root unless you log in as root.
+
+```bash
+sudo tee /etc/systemd/system/ttyd.service >/dev/null <<'EOF'
+[Unit]
+Description=ttyd terminal server (loopback only)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ttyd -W -p 7681 -i lo -t fontSize=15 -t fontFamily='ui-monospace, Menlo, Consolas, monospace' login
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ttyd
+sudo systemctl status ttyd --no-pager
+```
+
+**cloudflared:**
+
+```bash
+sudo cloudflared service install
+sudo systemctl enable --now cloudflared
+sudo systemctl status cloudflared --no-pager
+```
+
+Quick local check before going any further:
+
+```bash
+curl -sI http://localhost:7681 | head -1     # expect: HTTP/1.1 200 OK
+```
+
+---
+
+## 7. Put Cloudflare Access in front of it
+
+**Do not skip this.** Until it's done, `pi.oliverbar.net` is a login prompt
+exposed to the open internet.
+
+1. Go to **one.dash.cloudflare.com** → Zero Trust. First visit asks you to pick
+   a team name and a plan — **choose Free** (50 users). It may ask for a card;
+   the free plan doesn't charge it.
+2. **Access → Applications → Add an application → Self-hosted.**
+3. Application name: `Pi Terminal`. Session duration: **24 hours** is a
+   reasonable balance.
+4. Public hostname: subdomain `pi`, domain `oliverbar.net`.
+5. Add a policy: name it `Me`, action **Allow**, and under Include choose
+   **Emails** → `oliverbarnet12@gmail.com`.
+6. Under login methods, pick your identity provider and save.
+
+**On identity providers:** Google SSO needs a Google Cloud OAuth client set up
+in Zero Trust first — a few extra minutes. **One-time PIN** works with zero
+configuration (Cloudflare emails you a 6-digit code) and is exactly as strong
+for a single-user allowlist. If you want this working tonight, start with
+One-time PIN and swap to Google later; the policy stays the same.
+
+Verify: open `https://pi.oliverbar.net` in a private window. You should hit
+Cloudflare's login page, *not* a terminal.
+
+---
+
+## 8. Use it
+
+Go to oliverbar.net and type **`pi5`**.
+
+The first time, the page shows a sign-in card. Cloudflare's login screen refuses
+to be framed (deliberately — it's an anti-clickjacking measure), so that one
+login has to happen in its own tab. Click **Open in a new tab**, sign in, then
+come back. The session cookie is shared across `oliverbar.net`, so from then on
+the terminal loads inline and stays that way until the session expires.
+
+The bar along the top has:
+
+- a **status dot** — green means the tunnel answered, red means `cloudflared` or
+  `ttyd` is down on the Pi. It only reports reachability; it can't see inside
+  the terminal.
+- **Sign in** — reopens the Access login in a tab when your session lapses.
+- **Reload** — re-handshakes the WebSocket after a dropped connection.
+- **Fullscreen**.
+
+You can rename the `pi5` trigger from the admin panel under Site & Triggers, or
+disable the page there entirely.
+
+---
+
+## Troubleshooting
+
+| What you see | Where to look |
+|---|---|
+| Red dot, terminal blank | `sudo systemctl status cloudflared ttyd` |
+| `502 Bad Gateway` | ttyd isn't listening. `curl -sI http://localhost:7681` |
+| Terminal shows but typing does nothing | Missing `-W` on ttyd 1.7+ |
+| Frame stays blank, new tab works | Access session expired — hit **Sign in** |
+| DNS doesn't resolve | `cloudflared tunnel route dns pi-terminal pi.oliverbar.net` again |
+| Want live logs | `journalctl -u cloudflared -f` / `journalctl -u ttyd -f` |
+
+Confirm the tunnel is registered and healthy from the Pi:
+
+```bash
+cloudflared tunnel info pi-terminal
+```
+
+---
+
+## If you want to tighten it further
+
+- **A dedicated user.** Make a `console` account without sudo, and have ttyd run
+  `login -f console`. A compromised session then can't escalate.
+- **Shorten the Access session** to 1 hour, or require re-auth on every visit.
+- **Country restriction.** Add a Require block to the Access policy limiting it
+  to your country — cheap, and it removes most drive-by traffic.
+- **Audit trail.** Zero Trust → Logs → Access shows every login attempt against
+  the hostname, allowed and blocked.
