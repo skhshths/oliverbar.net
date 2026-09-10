@@ -594,6 +594,16 @@
   #lockdown-since { font-size: 11.5px; color: var(--muted); }
   #lockdown-status { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 
+  /* --- Maintenance mode badge (Experimental) --- */
+  #maintenance-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--border-col); color: var(--muted);
+  }
+  #maintenance-badge.on { border-color: var(--danger); color: var(--danger); }
+  #maintenance-badge.off { border-color: #3f7a3f; color: #6cc067; }
+  #maintenance-status, #broadcast-status { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+
   /* --- KV inspector + secret notes (Experimental) --- */
   #kv-inspector-row { display: flex; gap: 8px; margin-bottom: 8px; }
   #kv-inspector-select {
@@ -794,6 +804,28 @@
                 <button id="create-note-btn" class="btn-ghost small">Create Link</button>
                 <div id="note-result"></div>
               </div>
+
+              <div class="exp-card">
+                <div class="exp-card-title">Maintenance Mode</div>
+                <p class="exp-sub">Turns every hidden page into a "under maintenance" screen for visitors. The admin trigger always stays open, so you can never lock yourself out. Pages already open aren't kicked — this stops new arrivals.</p>
+                <div id="maintenance-state" style="margin:8px 0;">
+                  <span id="maintenance-badge">checking…</span>
+                </div>
+                <textarea id="maintenance-msg-input" maxlength="500" placeholder="Optional message shown to visitors (blank = a default)."></textarea>
+                <button id="maintenance-toggle-btn" class="btn-danger-outline">Turn On</button>
+                <div id="maintenance-status"></div>
+              </div>
+
+              <div class="exp-card">
+                <div class="exp-card-title">Broadcast Banner</div>
+                <p class="exp-sub">Shows a banner to everyone in the chat. Appears within a minute; no reload needed. Clear it to remove.</p>
+                <textarea id="broadcast-input" maxlength="300" placeholder="Message to show in chat (blank + Save clears it)."></textarea>
+                <div style="display:flex; gap:8px;">
+                  <button id="broadcast-save-btn" class="btn-ghost small">Save</button>
+                  <button id="broadcast-clear-btn" class="btn-ghost small">Clear</button>
+                </div>
+                <div id="broadcast-status"></div>
+              </div>
             </div>
           </section>
 
@@ -897,6 +929,14 @@
       const noteTextInput = document.getElementById('note-text-input');
       const createNoteBtn = document.getElementById('create-note-btn');
       const noteResult = document.getElementById('note-result');
+      const maintenanceBadge = document.getElementById('maintenance-badge');
+      const maintenanceMsgInput = document.getElementById('maintenance-msg-input');
+      const maintenanceToggleBtn = document.getElementById('maintenance-toggle-btn');
+      const maintenanceStatus = document.getElementById('maintenance-status');
+      const broadcastInput = document.getElementById('broadcast-input');
+      const broadcastSaveBtn = document.getElementById('broadcast-save-btn');
+      const broadcastClearBtn = document.getElementById('broadcast-clear-btn');
+      const broadcastStatus = document.getElementById('broadcast-status');
 
       let customPages = [];
       let savedPageSlugs = []; // slugs known to exist server-side, for delete diffing
@@ -936,6 +976,8 @@
         } else if (tab === 'experimental') {
           fetchTriggerStats();
           fetchPresenceCount();
+          fetchMaintenance();
+          fetchBroadcastAdmin();
           if (!kvInspectorSelect.options.length) loadKvKeys();
           presencePollTimer = setInterval(fetchPresenceCount, 5000);
         }
@@ -1749,6 +1791,85 @@
       }
 
       refreshStatsBtn.addEventListener('click', fetchTriggerStats);
+
+      // ---------- Maintenance mode ----------
+      let maintenanceState = null;
+      function renderMaintenance(m) {
+        maintenanceState = m;
+        if (!m) {
+          maintenanceBadge.textContent = 'unknown';
+          maintenanceBadge.className = '';
+          maintenanceToggleBtn.textContent = 'Turn On';
+          return;
+        }
+        maintenanceBadge.textContent = m.on ? 'ON' : 'OFF';
+        maintenanceBadge.className = m.on ? 'on' : 'off';
+        maintenanceToggleBtn.textContent = m.on ? 'Turn Off' : 'Turn On';
+        if (document.activeElement !== maintenanceMsgInput) {
+          maintenanceMsgInput.value = m.message || '';
+        }
+      }
+      function fetchMaintenance() {
+        if (!API_BASE) return;
+        fetch(API_BASE + '/api/maintenance', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(renderMaintenance)
+          .catch(function () { renderMaintenance(null); maintenanceStatus.textContent = 'Could not read state.'; });
+      }
+      maintenanceToggleBtn.addEventListener('click', function () {
+        const turningOn = !(maintenanceState && maintenanceState.on);
+        maintenanceToggleBtn.disabled = true;
+        maintenanceStatus.textContent = turningOn ? 'Turning on…' : 'Turning off…';
+        fetch(API_BASE + '/api/maintenance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
+          body: JSON.stringify({ on: turningOn, message: maintenanceMsgInput.value })
+        }).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        }).then(function (m) {
+          renderMaintenance(m);
+          maintenanceStatus.textContent = m.on
+            ? 'Maintenance is ON — visitors are blocked (admin trigger still works).'
+            : 'Maintenance is OFF — the site is open.';
+        }).catch(function (err) {
+          maintenanceStatus.textContent = 'Failed: ' + err.message + '. Nothing changed.';
+        }).then(function () { maintenanceToggleBtn.disabled = false; });
+      });
+
+      // ---------- Broadcast banner ----------
+      function fetchBroadcastAdmin() {
+        if (!API_BASE) return;
+        fetch(API_BASE + '/api/broadcast', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (b) {
+            if (document.activeElement !== broadcastInput) broadcastInput.value = (b && b.text) || '';
+          })
+          .catch(function () {});
+      }
+      function saveBroadcast(text) {
+        broadcastSaveBtn.disabled = true;
+        broadcastClearBtn.disabled = true;
+        broadcastStatus.textContent = 'Saving…';
+        fetch(API_BASE + '/api/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
+          body: JSON.stringify({ text: text })
+        }).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        }).then(function (b) {
+          broadcastInput.value = b.text || '';
+          broadcastStatus.textContent = b.text ? 'Banner is live in chat.' : 'Banner cleared.';
+        }).catch(function (err) {
+          broadcastStatus.textContent = 'Failed: ' + err.message + '.';
+        }).then(function () {
+          broadcastSaveBtn.disabled = false;
+          broadcastClearBtn.disabled = false;
+        });
+      }
+      broadcastSaveBtn.addEventListener('click', function () { saveBroadcast(broadcastInput.value.trim()); });
+      broadcastClearBtn.addEventListener('click', function () { broadcastInput.value = ''; saveBroadcast(''); });
 
       function fetchPresenceCount() {
         if (!API_BASE) return;

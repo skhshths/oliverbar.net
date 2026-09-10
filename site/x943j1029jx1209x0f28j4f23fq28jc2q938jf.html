@@ -402,6 +402,18 @@
     background-color: var(--panel-bg-2);
   }
   #pinned-strip.hidden { display: none; }
+
+  #broadcast-banner {
+    padding: 10px 18px;
+    border-bottom: 1px solid #6b5a2f;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #f0e2c0;
+    background-color: #33301f;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #broadcast-banner.hidden { display: none; }
   .pinned-item { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
   .pinned-item .pinned-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pinned-item button { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; flex-shrink: 0; }
@@ -675,6 +687,7 @@
           <button id="lock-conversation-btn" class="hidden" type="button" title="Lock this conversation with a PIN">🔓</button>
           <button id="delete-conversation-btn" class="hidden" type="button" title="Remove this conversation from your inbox">🗑</button>
         </div>
+        <div id="broadcast-banner" class="hidden"></div>
         <div id="pinned-strip" class="hidden"></div>
         <div id="messages"></div>
         <div id="compose">
@@ -1004,6 +1017,8 @@
         presencePingTimer = setInterval(pingPresence, PRESENCE_PING_MS);
 
         profileRefreshTimer = setInterval(refreshVisibleProfiles, PROFILE_REFRESH_MS);
+        fetchBroadcast();
+        setInterval(fetchBroadcast, 60000);
         globalMentionTimer = setInterval(checkGlobalMentions, GLOBAL_MENTION_POLL_MS);
 
         switchToGlobal();
@@ -1703,6 +1718,21 @@
         latestThreads.forEach(function (t) { (t.participants || []).forEach(function (p) { if (p !== myName) names[p] = true; }); });
         return Object.keys(names);
       }
+      // Admin-set announcement banner. Read-only here; shown across every
+      // view. textContent (never innerHTML) since it's admin-authored but
+      // there's no reason to allow markup.
+      const broadcastBanner = document.getElementById('broadcast-banner');
+      function fetchBroadcast() {
+        fetch(API_BASE + '/api/broadcast', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (b) {
+            const text = b && typeof b.text === 'string' ? b.text.trim() : '';
+            broadcastBanner.textContent = text;
+            broadcastBanner.classList.toggle('hidden', !text);
+          })
+          .catch(function () { /* a missing banner is not worth surfacing */ });
+      }
+
       function refreshVisibleProfiles() {
         const names = visibleNames();
         if (!names.length) return;

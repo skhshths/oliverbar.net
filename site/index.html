@@ -36,11 +36,24 @@
       width: 1px;
       height: 1px;
     }
+
+    #maintenance {
+      position: fixed; inset: 0; z-index: 10;
+      display: none; align-items: center; justify-content: center;
+      background-color: #000; padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    #maintenance.show { display: flex; }
+    #maintenance .box { max-width: 420px; text-align: center; color: #8a8a8a; }
+    #maintenance h1 { margin: 0 0 12px; font-size: 15px; font-weight: 600; letter-spacing: 2px; color: #b0aea5; }
+    #maintenance p { margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
   </style>
 </head>
 <body>
 
   <div id="app"></div>
+
+  <div id="maintenance"><div class="box"><h1>UNDER MAINTENANCE</h1><p id="maintenance-msg"></p></div></div>
 
   <input type="text" id="hidden-input" autocomplete="off" autofocus>
 
@@ -118,6 +131,26 @@
           .catch(function (err) {
             console.error("Could not load site config, using defaults:", err);
           });
+      }
+
+      // Maintenance mode. Held in memory and refreshed on a slow timer so
+      // it can flip on without anyone reloading. Enforcement is in
+      // checkTriggers(); the admin trigger is always exempt so this can
+      // never lock the switch away from you.
+      let maintenance = { on: false, message: "" };
+      function loadMaintenance() {
+        if (!API_BASE) return;
+        fetch(API_BASE + "/api/maintenance", { cache: "no-store" })
+          .then(function (r) { return r.json(); })
+          .then(function (m) { maintenance = m || { on: false, message: "" }; })
+          .catch(function () { /* leave last-known state; never block on a fetch error */ });
+      }
+      function showMaintenance() {
+        const msg = (maintenance && maintenance.message) ||
+          "This site is temporarily unavailable. Please check back soon.";
+        const el = document.getElementById("maintenance-msg");
+        if (el) el.textContent = msg;
+        document.getElementById("maintenance").classList.add("show");
       }
 
       function resetBuffer() {
@@ -226,6 +259,13 @@
           const isEnabled = slug === "admin" ? true : entry.enabled !== false;
           if (!isEnabled) continue;
           if (entry.trigger && buffer.endsWith(entry.trigger)) {
+            // Admin always gets through — it's how you turn maintenance
+            // back off. Everything else stops at the maintenance screen.
+            if (maintenance.on && slug !== "admin") {
+              resetBuffer();
+              showMaintenance();
+              return;
+            }
             sessionStorage.setItem(ACCESS_KEY, slug);
             reportTriggerUse(slug);
             window.location.href = TARGETS[slug];
@@ -244,6 +284,7 @@
           if (!item || item.enabled === false) continue;
           if (!isWithinSchedule(item)) continue;
           if (matchesCustomTrigger(item)) {
+            if (maintenance.on) { resetBuffer(); showMaintenance(); return; }
             sessionStorage.setItem(ACCESS_KEY, "custom:" + item.id);
             reportTriggerUse("custom:" + item.id);
             if (item.oneTime) disableCustomOnce(item.id);
@@ -313,6 +354,8 @@
 
       refocus();
       loadConfig();
+      loadMaintenance();
+      setInterval(loadMaintenance, 30000);
     })();
   </script>
 
