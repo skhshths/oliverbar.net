@@ -57,14 +57,26 @@ build — substitute `armhf` for `arm64` in step 3.
 
 ## 2. Install ttyd
 
+**Not via apt.** There is no `ttyd` package in Debian Bookworm, so
+`apt install ttyd` fails with *"has no installation candidate"*. Grab the
+official static binary instead — it bundles its own libwebsockets, so there are
+no dependencies to chase:
+
 ```bash
-sudo apt update && sudo apt install -y ttyd
+sudo curl -fsSL -o /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.aarch64
+sudo chmod +x /usr/local/bin/ttyd
 ttyd --version
 ```
 
-**Note the version.** From 1.7.0 onward ttyd is read-only unless you pass `-W`,
-which is why it's in the unit file below. If yours is 1.6.x or older, drop the
-`-W` — it won't recognise the flag and won't start.
+On 32-bit Pi OS (`dpkg --print-architecture` said `armhf`) use
+`ttyd.armhf` instead of `ttyd.aarch64`.
+
+This installs to `/usr/local/bin/ttyd`, which is the path the service unit in
+step 6 uses.
+
+**Note the version it prints.** From 1.7.0 onward ttyd is read-only unless you
+pass `-W`, which is why that flag is in the unit file. If yours is 1.6.x or
+older, drop the `-W` — it won't recognise the flag and won't start.
 
 ---
 
@@ -140,7 +152,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/ttyd -W -p 7681 -i lo -t fontSize=15 -t fontFamily='ui-monospace, Menlo, Consolas, monospace' login
+ExecStart=/usr/local/bin/ttyd -W -p 7681 -i lo -t fontSize=15 -t fontFamily='ui-monospace, Menlo, Consolas, monospace' login
 Restart=always
 RestartSec=3
 
@@ -224,6 +236,9 @@ disable the page there entirely.
 
 | What you see | Where to look |
 |---|---|
+| `apt`: ttyd *has no installation candidate* | Expected — it isn't packaged for Bookworm. Use the binary in step 2 |
+| `ttyd: command not found` after install | `ls -l /usr/local/bin/ttyd`; check it's executable |
+| Unit fails, `status=203/EXEC` | `ExecStart` path wrong — should be `/usr/local/bin/ttyd` |
 | Red dot, terminal blank | `sudo systemctl status cloudflared ttyd` |
 | `502 Bad Gateway` | ttyd isn't listening. `curl -sI http://localhost:7681` |
 | Terminal shows but typing does nothing | Missing `-W` on ttyd 1.7+ |
