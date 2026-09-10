@@ -359,6 +359,17 @@
   }
   #dm-search-input:focus { border-color: var(--accent); }
   #dm-search-input.hidden { display: none; }
+  #lock-conversation-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #lock-conversation-btn:hover { color: var(--accent); }
+  #lock-conversation-btn.hidden { display: none; }
+
   #delete-conversation-btn {
     background: none;
     border: none;
@@ -523,13 +534,6 @@
 
   .msg-controls button.starred { color: var(--accent); }
 
-  #typing-indicator {
-    padding: 0 18px;
-    font-size: 11px;
-    color: var(--muted);
-    min-height: 16px;
-    font-style: italic;
-  }
 
   #compose {
     display: flex;
@@ -668,11 +672,11 @@
             <div class="chat-header-sub" id="chat-header-sub">visible to everyone</div>
           </div>
           <input type="text" id="dm-search-input" class="hidden" placeholder="Search...">
+          <button id="lock-conversation-btn" class="hidden" type="button" title="Lock this conversation with a PIN">🔓</button>
           <button id="delete-conversation-btn" class="hidden" type="button" title="Remove this conversation from your inbox">🗑</button>
         </div>
         <div id="pinned-strip" class="hidden"></div>
         <div id="messages"></div>
-        <div id="typing-indicator"></div>
         <div id="compose">
           <div id="reply-preview" class="hidden">
             <span id="reply-preview-text"></span>
@@ -696,12 +700,10 @@
       const ACCESS_KEY = "unlockedAccess";
       const HOME_PAGE = "/";
       const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
-      const POLL_MS = 3000;
-      const THREADS_POLL_MS = 5000;
-      const TYPING_POLL_MS = 2000;
-      const TYPING_PING_MS = 2000;
-      const PRESENCE_PING_MS = 15000;
-      const PROFILE_REFRESH_MS = 15000;
+      const POLL_MS = 4000;
+      const THREADS_POLL_MS = 10000;
+      const PRESENCE_PING_MS = 60000;
+      const PROFILE_REFRESH_MS = 30000;
       const REMEMBER_KEY = "chatIdentity"; // localStorage convenience only, not a security boundary
       const SESSION_KEY = "chatSession"; // { token, name } — this is what makes login persist
       const READ_STATE_KEY = "chatReadState"; // { [threadKeyLower]: lastReadTs }, for the unread dots
@@ -754,9 +756,9 @@
       const chatHeaderSub = document.getElementById('chat-header-sub');
       const dmSearchInput = document.getElementById('dm-search-input');
       const deleteConversationBtn = document.getElementById('delete-conversation-btn');
+      const lockConversationBtn = document.getElementById('lock-conversation-btn');
       const pinnedStrip = document.getElementById('pinned-strip');
       const messagesEl = document.getElementById('messages');
-      const typingIndicator = document.getElementById('typing-indicator');
       const chatInput = document.getElementById('chat-input');
       const sendBtn = document.getElementById('send-btn');
       const composeStatus = document.getElementById('compose-status');
@@ -775,8 +777,6 @@
       let lastReads = {};
       let pollTimer = null;
       let threadsPollTimer = null;
-      let typingPollTimer = null;
-      let typingPingedAt = 0;
       let presencePingTimer = null;
       let profileRefreshTimer = null;
       let latestThreads = [];
@@ -785,6 +785,7 @@
       const presenceCache = {}; // lowerName -> { online, lastSeen }
       let notifiedIds = {}; // messageId -> true, so we don't double-notify
       let replyingTo = null; // { id, who, text } — the message being replied to, or null
+      const UNLOCKED_KEY = "chatUnlocked"; // convIds unlocked for this tab only — sessionStorage, so closing re-locks
       const STARRED_KEY = "chatStarred"; // { [messageId]: true } — purely a client-side bookmark, not synced
 
       // ---------- Small localStorage helpers ----------
@@ -799,6 +800,23 @@
         const state = readReadState();
         state[convId] = Date.now();
         writeJSON(READ_STATE_KEY, state);
+      }
+
+      function isUnlocked(convId) {
+        try { return (JSON.parse(sessionStorage.getItem(UNLOCKED_KEY) || '[]')).indexOf(convId) !== -1; }
+        catch (e) { return false; }
+      }
+      function markUnlocked(convId) {
+        try {
+          const list = JSON.parse(sessionStorage.getItem(UNLOCKED_KEY) || '[]');
+          if (list.indexOf(convId) === -1) list.push(convId);
+          sessionStorage.setItem(UNLOCKED_KEY, JSON.stringify(list));
+        } catch (e) {}
+      }
+      function lockedConvIds() {
+        const map = {};
+        latestThreads.forEach(function (t) { if (t.locked) map[t.convId] = true; });
+        return map;
       }
 
       function isStarred(id) { return !!readJSON(STARRED_KEY, {})[id]; }
@@ -966,23 +984,16 @@
         fetchThreads();
         threadsPollTimer = setInterval(fetchThreads, THREADS_POLL_MS);
 
-        api('/api/chat/presence', { method: 'POST' }).catch(function () {});
-        presencePingTimer = setInterval(function () {
+        function pingPresence() {
+          if (document.hidden) return; // don't burn writes on a background tab
           api('/api/chat/presence', { method: 'POST' }).catch(function () {});
-        }, PRESENCE_PING_MS);
+        }
+        pingPresence();
+        presencePingTimer = setInterval(pingPresence, PRESENCE_PING_MS);
 
         profileRefreshTimer = setInterval(refreshVisibleProfiles, PROFILE_REFRESH_MS);
 
         switchToGlobal();
-      }
-
-      // Purely cosmetic, client-derived from a lifetime message count the
-      // Worker already tracks — nothing server-enforced here.
-      function badgeFor(count) {
-        if (count >= 200) return '🏆 Legend';
-        if (count >= 50) return '⭐ Regular';
-        if (count >= 10) return '🌱 Chatterbox';
-        return '';
       }
 
       function loadOwnProfile() {
@@ -990,8 +1001,7 @@
           const mine = data[myName];
           if (mine) {
             myAvatarEl.textContent = mine.avatar || myName.charAt(0).toUpperCase();
-            const badge = badgeFor(mine.messageCount || 0);
-            sidebarMyStatus.textContent = (mine.status || '') + (badge ? (mine.status ? '  ·  ' : '') + badge : '');
+            sidebarMyStatus.textContent = mine.status || '';
             settingsAvatar.value = mine.avatar || '';
             settingsStatus.value = mine.status || '';
           } else {
@@ -1157,11 +1167,6 @@
       }
 
       // ---------- View switching ----------
-      function stopTypingPoll() {
-        if (typingPollTimer) { clearInterval(typingPollTimer); typingPollTimer = null; }
-        typingIndicator.textContent = '';
-      }
-
       function cancelReply() {
         replyingTo = null;
         replyPreview.classList.add('hidden');
@@ -1178,13 +1183,24 @@
         dmSearchInput.classList.add('hidden');
         dmSearchInput.value = '';
         deleteConversationBtn.classList.add('hidden');
+        lockConversationBtn.classList.add('hidden');
         messagesEl.innerHTML = '';
         renderThreadListActiveState();
         fetchPinned();
         pinnedStrip.classList.remove('hidden');
         restartPolling();
-        stopTypingPoll();
-        typingPollTimer = setInterval(pollTyping, TYPING_POLL_MS);
+      }
+
+      // A locked conversation asks for its PIN before it will open. The
+      // check is server-side; passing it only unlocks for this tab.
+      function openConversation(convId, participants) {
+        const locked = lockedConvIds()[convId];
+        if (!locked || isUnlocked(convId)) { switchToDm(convId, participants); return; }
+        const pin = window.prompt('This conversation is locked. Enter its PIN:');
+        if (pin === null) return;
+        api('/api/dm/unlock', { method: 'POST', body: { convId: convId, pin: pin } })
+          .then(function () { markUnlocked(convId); switchToDm(convId, participants); })
+          .catch(function (err) { composeStatus.textContent = err.message || 'Wrong PIN.'; });
       }
 
       function switchToDm(convId, participants) {
@@ -1198,13 +1214,13 @@
         dmSearchInput.classList.remove('hidden');
         dmSearchInput.value = '';
         deleteConversationBtn.classList.remove('hidden');
+        lockConversationBtn.classList.remove('hidden');
+        lockConversationBtn.textContent = lockedConvIds()[convId] ? '🔒' : '🔓';
         pinnedStrip.classList.add('hidden');
         messagesEl.innerHTML = '';
         markThreadRead(convId);
         renderThreadListActiveState();
         restartPolling();
-        stopTypingPoll();
-        typingPollTimer = setInterval(pollTyping, TYPING_POLL_MS);
       }
 
       navGlobal.addEventListener('click', switchToGlobal);
@@ -1218,8 +1234,32 @@
         api('/api/dm/leave', { method: 'POST', body: { convId: convId } }).then(function () {
           if (currentView === 'dm' && currentConvId === convId) switchToGlobal();
           fetchThreads();
-        }).catch(function () {});
+        }).catch(function (err) {
+          composeStatus.textContent = 'Could not delete: ' + (err.message || 'unknown error');
+        });
       }
+      lockConversationBtn.addEventListener('click', function () {
+        if (!currentConvId) return;
+        if (lockedConvIds()[currentConvId]) {
+          const pin = window.prompt("Enter this conversation's PIN to remove the lock:");
+          if (pin === null) return;
+          api('/api/dm/lock/remove', { method: 'POST', body: { convId: currentConvId, pin: pin } })
+            .then(function () { composeStatus.textContent = 'Lock removed.'; fetchThreads(); lockConversationBtn.textContent = '🔓'; })
+            .catch(function (err) { composeStatus.textContent = err.message || 'Wrong PIN.'; });
+        } else {
+          const pin = window.prompt('Set a PIN for this conversation (only locks it for you):');
+          if (pin === null) return;
+          api('/api/dm/lock', { method: 'POST', body: { convId: currentConvId, pin: pin } })
+            .then(function () {
+              markUnlocked(currentConvId); // already open, don't re-prompt now
+              composeStatus.textContent = "Locked. You'll need this PIN next time.";
+              fetchThreads();
+              lockConversationBtn.textContent = '🔒';
+            })
+            .catch(function (err) { composeStatus.textContent = err.message || 'Could not lock.'; });
+        }
+      });
+
       deleteConversationBtn.addEventListener('click', function () {
         if (currentConvId) deleteConversation(currentConvId);
       });
@@ -1232,7 +1272,7 @@
         newDmInput.value = '';
         api('/api/dm/start', { method: 'POST', body: { participants: participants } })
           .then(function (data) { switchToDm(data.convId, data.participants); fetchThreads(); })
-          .catch(function (err) { composeStatus.textContent = err.message || 'Could not start conversation.'; });
+          .catch(function (err) { composeStatus.textContent = 'Could not start conversation: ' + (err.message || 'unknown error'); });
       }
       newDmBtn.addEventListener('click', openNewDm);
       newDmInput.addEventListener('keydown', function (e) {
@@ -1586,25 +1626,6 @@
           .catch(function (err) { composeStatus.textContent = err.message; });
       }
 
-      // ---------- Typing indicators ----------
-      function pingTyping() {
-        const now = Date.now();
-        if (now - typingPingedAt < TYPING_PING_MS) return;
-        typingPingedAt = now;
-        const body = currentView === 'global' ? { scope: 'global' } : { scope: 'dm', convId: currentConvId };
-        api('/api/typing', { method: 'POST', body: body }).catch(function () {});
-      }
-      function pollTyping() {
-        const qs = currentView === 'global' ? 'scope=global' : 'scope=dm&convId=' + encodeURIComponent(currentConvId);
-        api('/api/typing?' + qs).then(function (typers) {
-          if (!Array.isArray(typers) || !typers.length) { typingIndicator.textContent = ''; return; }
-          const unique = typers.filter(function (v, i) { return typers.indexOf(v) === i; });
-          typingIndicator.textContent = unique.length === 1
-            ? unique[0] + ' is typing…'
-            : unique.join(', ') + ' are typing…';
-        }).catch(function () {});
-      }
-      chatInput.addEventListener('input', pingTyping);
 
       // ---------- Presence + profile enrichment ----------
       function visibleNames() {
@@ -1665,7 +1686,7 @@
 
           const item = document.createElement('div');
           item.className = 'thread-item' + (currentView === 'dm' && currentConvId === t.convId ? ' active' : '');
-          item.addEventListener('click', function () { switchToDm(t.convId, t.participants); });
+          item.addEventListener('click', function () { openConversation(t.convId, t.participants); });
 
           const avatar = document.createElement('div');
           avatar.className = 'avatar-badge small';
@@ -1683,8 +1704,7 @@
 
           const nameEl = document.createElement('div');
           nameEl.className = 'thread-name';
-          const badge = (others.length === 1 && prof) ? badgeFor(prof.messageCount || 0) : '';
-          nameEl.textContent = label + (badge ? ' ' + badge : '');
+          nameEl.textContent = (t.locked ? '🔒 ' : '') + label;
 
           const previewEl = document.createElement('div');
           previewEl.className = 'thread-preview';
