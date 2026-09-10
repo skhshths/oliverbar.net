@@ -715,7 +715,7 @@
       const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
       const POLL_MS = 4000;
       const THREADS_POLL_MS = 10000;
-      const PRESENCE_PING_MS = 60000;
+      const PRESENCE_PING_MS = 180000; // 3 min — presence is the heaviest write on the site, so it's kept infrequent. Must stay under the Worker's ONLINE_WINDOW_MS or people flicker offline between pings.
       const PROFILE_REFRESH_MS = 30000;
       const GLOBAL_MENTION_POLL_MS = 15000; // slow background check for @mentions while you're inside a DM
       const BASE_TITLE = "."; // what the tab title sits at normally

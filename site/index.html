@@ -350,14 +350,18 @@
           sessionStorage.setItem("presenceId", presenceId);
         }
         function ping() {
+          // Skip background tabs entirely. This ping is only a "for fun"
+          // tab count, and a forgotten background tab pinging on a timer
+          // was quietly the biggest write drain on the whole site.
+          if (document.hidden) return;
           fetch(API_BASE + "/api/presence/ping", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: presenceId })
           }).catch(function () {});
         }
-        ping();
-        setInterval(ping, 20000);
+        if (!document.hidden) ping();
+        setInterval(ping, 60000);
       })();
 
       refocus();
