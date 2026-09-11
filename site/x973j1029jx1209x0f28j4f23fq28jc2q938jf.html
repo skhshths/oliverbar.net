@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.</title>
+<style>
+  :root {
+    --bg: #141413;
+    --panel: #1b1b19;
+    --panel2: #232320;
+    --border: #30302e;
+    --text: #faf9f5;
+    --muted: #b0aea5;
+    --dim: #6f6d66;
+    --accent: #d97757;
+    --sealed: #c7a95a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  #wrap { max-width: 640px; margin: 0 auto; padding: 40px 20px 80px; }
+  header h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: 0.5px; }
+  header p { margin: 0 0 28px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; margin-bottom: 26px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 14px; font-weight: 600; letter-spacing: 0.5px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 5px; }
+  input, textarea {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px;
+    font-size: 13px; font-family: inherit;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { min-height: 88px; resize: vertical; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 160px; }
+  button {
+    margin-top: 16px; background: var(--accent); color: #141413; font-weight: 700;
+    border: none; border-radius: 9px; padding: 10px 22px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { background: #c96442; color: var(--text); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #seal-status { font-size: 12px; color: var(--muted); margin-top: 10px; min-height: 16px; }
+
+  .section-title {
+    font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--dim); margin: 30px 0 12px;
+  }
+  .capsule {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .capsule.sealed { border-style: dashed; border-color: #4a4433; background: var(--panel2); }
+  .capsule .cap-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .capsule .cap-meta { font-size: 11.5px; color: var(--dim); }
+  .capsule .cap-body { font-size: 13.5px; line-height: 1.6; margin-top: 8px; white-space: pre-wrap; word-break: break-word; }
+  .capsule .cap-from { font-size: 12px; color: var(--muted); margin-top: 8px; font-style: italic; }
+  .sealed .cap-lock { color: var(--sealed); font-size: 13px; }
+  .sealed .cap-countdown { font-size: 12px; color: var(--sealed); margin-top: 6px; }
+  #empty { font-size: 13px; color: var(--dim); }
+  #open-empty { font-size: 13px; color: var(--dim); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>Time Capsule</h1>
+    <p>Write something that stays sealed until a date you choose. Nobody can read it — not even by prying at the page — until its day arrives. Then it opens for anyone who finds their way here.</p>
+  </header>
+
+  <div class="card">
+    <h2>Seal a new capsule</h2>
+    <label for="cap-message">Your message</label>
+    <textarea id="cap-message" maxlength="2000" placeholder="A note to the future…"></textarea>
+    <div class="row">
+      <div>
+        <label for="cap-title">Title (optional)</label>
+        <input type="text" id="cap-title" maxlength="80" placeholder="What is this?">
+      </div>
+      <div>
+        <label for="cap-from">From (optional)</label>
+        <input type="text" id="cap-from" maxlength="40" placeholder="A name, or leave blank">
+      </div>
+    </div>
+    <label for="cap-date">Unlocks on</label>
+    <input type="date" id="cap-date">
+    <button id="seal-btn">Seal it</button>
+    <div id="seal-status"></div>
+  </div>
+
+  <div class="section-title">Sealed</div>
+  <div id="sealed-list"></div>
+  <div id="empty" hidden>No sealed capsules yet — be the first.</div>
+
+  <div class="section-title">Opened</div>
+  <div id="open-list"></div>
+  <div id="open-empty" hidden>Nothing has opened yet.</div>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+
+    const API_BASE = "https://api.oliverbar.net";
+    const ACCESS_KEY = "unlockedAccess";
+    const HOME_PAGE = "/";
+
+    // Same direct-access guard as the other hidden pages: only reachable by
+    // typing the trigger, and a reload bounces home.
+    if (sessionStorage.getItem(ACCESS_KEY) !== "capsule") {
+      window.location.replace(HOME_PAGE);
+      return;
+    }
+    sessionStorage.removeItem(ACCESS_KEY);
+
+    const messageEl = document.getElementById("cap-message");
+    const titleEl = document.getElementById("cap-title");
+    const fromEl = document.getElementById("cap-from");
+    const dateEl = document.getElementById("cap-date");
+    const sealBtn = document.getElementById("seal-btn");
+    const sealStatus = document.getElementById("seal-status");
+    const sealedList = document.getElementById("sealed-list");
+    const openList = document.getElementById("open-list");
+    const emptyEl = document.getElementById("empty");
+    const openEmptyEl = document.getElementById("open-empty");
+
+    // Default the date picker to a year out, and forbid past dates.
+    (function () {
+      const now = new Date();
+      const min = new Date(now.getTime() + 24 * 3600 * 1000);
+      dateEl.min = min.toISOString().slice(0, 10);
+      const def = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+      dateEl.value = def.toISOString().slice(0, 10);
+    })();
+
+    function fmtDate(ts) {
+      try { return new Date(ts).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }); }
+      catch (e) { return new Date(ts).toDateString(); }
+    }
+    function countdown(ts) {
+      const days = Math.ceil((ts - Date.now()) / (24 * 3600 * 1000));
+      if (days <= 0) return "opening any moment";
+      if (days === 1) return "opens tomorrow";
+      if (days < 45) return "opens in " + days + " days";
+      const months = Math.round(days / 30.4);
+      if (months < 24) return "opens in about " + months + " months";
+      return "opens in about " + Math.round(days / 365) + " years";
+    }
+
+    function render(capsules) {
+      sealedList.innerHTML = "";
+      openList.innerHTML = "";
+      let sealedCount = 0, openCount = 0;
+
+      capsules.forEach(function (c) {
+        const div = document.createElement("div");
+        div.className = "capsule" + (c.unlocked ? "" : " sealed");
+
+        if (c.title) {
+          const t = document.createElement("div");
+          t.className = "cap-title";
+          t.textContent = c.title;
+          div.appendChild(t);
+        }
+
+        if (c.unlocked) {
+          openCount++;
+          const meta = document.createElement("div");
+          meta.className = "cap-meta";
+          meta.textContent = "Opened " + fmtDate(c.unlockAt);
+          div.appendChild(meta);
+
+          const body = document.createElement("div");
+          body.className = "cap-body";
+          body.textContent = c.message;
+          div.appendChild(body);
+
+          if (c.from) {
+            const f = document.createElement("div");
+            f.className = "cap-from";
+            f.textContent = "— " + c.from;
+            div.appendChild(f);
+          }
+          openList.appendChild(div);
+        } else {
+          sealedCount++;
+          const lock = document.createElement("div");
+          lock.className = "cap-lock";
+          lock.textContent = "🔒 Sealed until " + fmtDate(c.unlockAt);
+          div.appendChild(lock);
+
+          const cd = document.createElement("div");
+          cd.className = "cap-countdown";
+          cd.textContent = countdown(c.unlockAt);
+          div.appendChild(cd);
+
+          if (c.from) {
+            const f = document.createElement("div");
+            f.className = "cap-meta";
+            f.textContent = "from " + c.from;
+            f.style.marginTop = "6px";
+            div.appendChild(f);
+          }
+          sealedList.appendChild(div);
+        }
+      });
+
+      emptyEl.hidden = sealedCount > 0;
+      openEmptyEl.hidden = openCount > 0;
+    }
+
+    function load() {
+      fetch(API_BASE + "/api/capsules", { cache: "no-store" })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { render(Array.isArray(data) ? data : []); })
+        .catch(function () { sealStatus.textContent = "Couldn't load the wall right now."; });
+    }
+
+    sealBtn.addEventListener("click", function () {
+      const message = messageEl.value.trim();
+      if (!message) { sealStatus.textContent = "Write a message first."; return; }
+      if (!dateEl.value) { sealStatus.textContent = "Pick an unlock date."; return; }
+      // Unlock at local midnight of the chosen day.
+      const unlockAt = new Date(dateEl.value + "T00:00:00").getTime();
+      if (!unlockAt || unlockAt <= Date.now()) { sealStatus.textContent = "Pick a future date."; return; }
+
+      sealBtn.disabled = true;
+      sealStatus.textContent = "Sealing…";
+      fetch(API_BASE + "/api/capsules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message, title: titleEl.value.trim(), from: fromEl.value.trim(), unlockAt: unlockAt })
+      }).then(function (r) {
+        return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "Failed"); return d; });
+      }).then(function (d) {
+        messageEl.value = ""; titleEl.value = "";
+        sealStatus.textContent = "Sealed until " + fmtDate(d.unlockAt) + ".";
+        load();
+      }).catch(function (err) {
+        sealStatus.textContent = err.message;
+      }).then(function () { sealBtn.disabled = false; });
+    });
+
+    load();
+    // Refresh occasionally so a capsule that crosses its unlock time opens
+    // itself without a manual reload.
+    setInterval(load, 60000);
+  })();
+</script>
+</body>
+</html>

@@ -830,6 +830,14 @@
                 </div>
                 <div id="broadcast-status"></div>
               </div>
+
+              <div class="exp-card">
+                <div class="exp-card-title">Time Capsules</div>
+                <p class="exp-sub">Sealed capsules from the <code>capsule</code> page. You can't read a sealed message — the server hides it until its date — but you can delete any capsule here for moderation.</p>
+                <button id="capsules-refresh-btn" class="btn-ghost small">Refresh</button>
+                <div id="capsules-list" style="margin-top:10px;"></div>
+                <div id="capsules-empty" class="hidden" style="font-size:12px;color:var(--muted);">No capsules yet.</div>
+              </div>
             </div>
           </section>
 
@@ -871,12 +879,12 @@
         return base + '/page/' + (slug || '');
       }
 
-      const PAGE_ORDER = ["admin", "interactive", "portfolio", "chat", "games", "pi"];
-      const PAGE_LABELS = { admin: "Admin", interactive: "Interactive", portfolio: "Portfolio", chat: "Chat", games: "Games", pi: "Pi Terminal" };
+      const PAGE_ORDER = ["admin", "interactive", "portfolio", "chat", "games", "pi", "capsule"];
+      const PAGE_LABELS = { admin: "Admin", interactive: "Interactive", portfolio: "Portfolio", chat: "Chat", games: "Games", pi: "Pi Terminal", capsule: "Time Capsule" };
       // Used to seed a built-in page that isn't in a stored config yet
       // (e.g. Games, added after this site was first deployed) so its
       // trigger word isn't blank and blocking every save.
-      const DEFAULT_TRIGGERS = { admin: "ADMIN", interactive: "interactive", portfolio: "portfolio", chat: "chat", games: "game123", pi: "pi5" };
+      const DEFAULT_TRIGGERS = { admin: "ADMIN", interactive: "interactive", portfolio: "portfolio", chat: "chat", games: "game123", pi: "pi5", capsule: "capsule" };
       const ADMIN_FIXED_TRIGGER = "ADMIN"; // matches the Worker's hardcoded value; display-only here
 
       // ---------- Direct-access guard ----------
@@ -942,6 +950,9 @@
       const broadcastSaveBtn = document.getElementById('broadcast-save-btn');
       const broadcastClearBtn = document.getElementById('broadcast-clear-btn');
       const broadcastStatus = document.getElementById('broadcast-status');
+      const capsulesRefreshBtn = document.getElementById('capsules-refresh-btn');
+      const capsulesList = document.getElementById('capsules-list');
+      const capsulesEmpty = document.getElementById('capsules-empty');
 
       let customPages = [];
       let savedPageSlugs = []; // slugs known to exist server-side, for delete diffing
@@ -957,6 +968,7 @@
         chat:        { trigger: "chat",        enabled: true },
         games:       { trigger: "game123",     enabled: true },
         pi:          { trigger: "pi5",         enabled: true },
+        capsule:     { trigger: "capsule",     enabled: true },
         custom: []
       };
 
@@ -983,6 +995,7 @@
           fetchPresenceCount();
           fetchMaintenance();
           fetchBroadcastAdmin();
+          fetchCapsules();
           if (!kvInspectorSelect.options.length) loadKvKeys();
           presencePollTimer = setInterval(fetchPresenceCount, 5000);
         }
@@ -1895,6 +1908,45 @@
       }
       broadcastSaveBtn.addEventListener('click', function () { saveBroadcast(broadcastInput.value.trim()); });
       broadcastClearBtn.addEventListener('click', function () { broadcastInput.value = ''; saveBroadcast(''); });
+
+      // ---------- Time capsules (admin moderation) ----------
+      function fetchCapsules() {
+        if (!API_BASE) return;
+        fetch(API_BASE + '/api/capsules', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (list) {
+            capsulesList.innerHTML = '';
+            const arr = Array.isArray(list) ? list : [];
+            capsulesEmpty.classList.toggle('hidden', arr.length > 0);
+            arr.forEach(function (c) {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-col);font-size:12px;';
+              const info = document.createElement('div');
+              info.style.flex = '1';
+              const when = new Date(c.unlockAt).toLocaleDateString();
+              const state = c.unlocked ? 'open' : 'sealed';
+              const label = (c.title || '(untitled)') + (c.from ? ' — ' + c.from : '');
+              info.textContent = label + '  ·  ' + state + ' · unlocks ' + when;
+              const del = document.createElement('button');
+              del.className = 'btn-danger-outline';
+              del.style.cssText = 'margin:0;padding:3px 10px;font-size:11px;';
+              del.textContent = 'Delete';
+              del.addEventListener('click', function () {
+                if (!window.confirm('Delete this capsule permanently?')) return;
+                fetch(API_BASE + '/api/capsules/delete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
+                  body: JSON.stringify({ id: c.id })
+                }).then(function (r) { if (r.ok) fetchCapsules(); });
+              });
+              row.appendChild(info);
+              row.appendChild(del);
+              capsulesList.appendChild(row);
+            });
+          })
+          .catch(function () {});
+      }
+      capsulesRefreshBtn.addEventListener('click', fetchCapsules);
 
       function fetchPresenceCount() {
         if (!API_BASE) return;

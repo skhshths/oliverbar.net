@@ -624,6 +624,7 @@
         <div class="settings-section">
           <h3>Notifications</h3>
           <button id="notif-toggle-btn">Enable browser notifications</button>
+          <button id="sound-toggle-btn" style="margin-top:8px;">Sound: off</button>
         </div>
 
         <div class="settings-section">
@@ -814,6 +815,101 @@
       const STARRED_KEY = "chatStarred"; // { [messageId]: true } — purely a client-side bookmark, not synced
 
       // ---------- Small localStorage helpers ----------
+      // ---------- Chat polish pack (all client-side, zero server writes) ----------
+      const DRAFTS_KEY = "chatDrafts";     // { [context]: unsent text }
+      const NICKS_KEY = "chatNicknames";   // { [lowerName]: nickname } — private to this browser
+      const SOUND_KEY = "chatSoundOn";     // "1" when the new-message chime is on
+
+      // Drafts: remember what you were typing per conversation.
+      function draftContext() { return currentView === 'dm' ? ('dm:' + currentConvId) : 'global'; }
+      function saveDraft() {
+        const drafts = readJSON(DRAFTS_KEY, {});
+        const v = chatInput.value;
+        if (v) drafts[draftContext()] = v; else delete drafts[draftContext()];
+        writeJSON(DRAFTS_KEY, drafts);
+      }
+      function restoreDraft() {
+        const drafts = readJSON(DRAFTS_KEY, {});
+        chatInput.value = drafts[draftContext()] || '';
+      }
+      function clearDraft(ctx) {
+        const drafts = readJSON(DRAFTS_KEY, {});
+        delete drafts[ctx];
+        writeJSON(DRAFTS_KEY, drafts);
+      }
+
+      // Private nicknames: show your own label for a person, only in your browser.
+      function nick(name) {
+        if (!name) return name;
+        const nicks = readJSON(NICKS_KEY, {});
+        return nicks[name.toLowerCase()] || name;
+      }
+      function setNick(name) {
+        if (!name) return;
+        const nicks = readJSON(NICKS_KEY, {});
+        const current = nicks[name.toLowerCase()] || '';
+        const next = window.prompt('Private nickname for ' + name + ' (blank to clear):', current);
+        if (next === null) return;
+        if (next.trim()) nicks[name.toLowerCase()] = next.trim().slice(0, 40);
+        else delete nicks[name.toLowerCase()];
+        writeJSON(NICKS_KEY, nicks);
+        fetchThreads();
+        renderMessages(applySearchFilter(lastMessages));
+      }
+
+      // Slash commands: transform the outgoing text, or return null to swallow it.
+      function applySlash(text) {
+        if (text.charAt(0) !== '/') return text;
+        const sp = text.indexOf(' ');
+        const cmd = (sp === -1 ? text : text.slice(0, sp)).toLowerCase();
+        const rest = sp === -1 ? '' : text.slice(sp + 1).trim();
+        switch (cmd) {
+          case '/shrug': return (rest ? rest + ' ' : '') + '¯\\_(ツ)_/¯';
+          case '/tableflip': return (rest ? rest + ' ' : '') + '(╯°□°)╯︵ ┻━┻';
+          case '/unflip': return (rest ? rest + ' ' : '') + '┬─┬ ノ( ゜-゜ノ)';
+          case '/lenny': return (rest ? rest + ' ' : '') + '( ͡° ͜ʖ ͡°)';
+          case '/me': return rest ? '*' + rest + '*' : null; // *…* renders italic in renderRichText
+          case '/help':
+            composeStatus.textContent = 'Commands: /me, /shrug, /tableflip, /unflip, /lenny';
+            return null;
+          default: return text; // unknown slash: send it as typed
+        }
+      }
+
+      // New-message chime — WebAudio, no asset file. Off by default.
+      let audioCtx = null;
+      function soundOn() { try { return localStorage.getItem(SOUND_KEY) === '1'; } catch (e) { return false; } }
+      function playChime() {
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.connect(g); g.connect(audioCtx.destination);
+          o.type = 'sine';
+          o.frequency.setValueAtTime(660, audioCtx.currentTime);
+          o.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08);
+          g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.15, audioCtx.currentTime + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.25);
+          o.start(); o.stop(audioCtx.currentTime + 0.26);
+        } catch (e) {}
+      }
+      function refreshSoundButton() {
+        const btn = document.getElementById('sound-toggle-btn');
+        if (btn) btn.textContent = 'Sound: ' + (soundOn() ? 'on' : 'off');
+      }
+      (function () {
+        const btn = document.getElementById('sound-toggle-btn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          const next = soundOn() ? '0' : '1';
+          try { localStorage.setItem(SOUND_KEY, next); } catch (e) {}
+          refreshSoundButton();
+          if (next === '1') playChime(); // also unlocks audio via the click gesture
+        });
+        refreshSoundButton();
+      })();
+
       function readJSON(key, fallback) {
         try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; } catch (e) { return fallback; }
       }
@@ -1240,6 +1336,7 @@
         fetchPinned();
         pinnedStrip.classList.remove('hidden');
         restartPolling();
+        restoreDraft();
       }
 
       // A locked conversation asks for its PIN before it will open. The
@@ -1261,7 +1358,7 @@
         currentConvId = convId;
         currentOthers = (participants || []).filter(function (p) { return p.toLowerCase() !== myName.toLowerCase(); });
         navGlobal.classList.remove('active');
-        chatHeaderTitle.textContent = currentOthers.join(', ') || '(conversation)';
+        chatHeaderTitle.textContent = currentOthers.map(function (n) { return nick(n); }).join(', ') || '(conversation)';
         chatHeaderSub.textContent = currentOthers.length > 1 ? 'group · only visible to participants' : 'only visible to the two of you';
         dmSearchInput.classList.remove('hidden');
         dmSearchInput.value = '';
@@ -1273,6 +1370,7 @@
         markThreadRead(convId);
         renderThreadListActiveState();
         restartPolling();
+        restoreDraft();
       }
 
       navGlobal.addEventListener('click', switchToGlobal);
@@ -1439,11 +1537,13 @@
           if (m.deleted || isHistory) return;
           if (scope === 'dm') {
             notify(who, m.text);
+            if (soundOn()) playChime();
             // You're looking straight at this conversation, so only blink
             // when the tab is in the background.
             if (document.hidden) flashTitle();
           } else if (mentionsMe(m.text)) {
             notify(who + ' mentioned you', m.text);
+            if (soundOn()) playChime();
             if (document.hidden || currentView !== 'global') flashTitle();
           }
         });
@@ -1516,7 +1616,13 @@
 
           const nameEl = document.createElement('div');
           nameEl.className = 'msg-name';
-          nameEl.textContent = who;
+          nameEl.textContent = nick(who);
+          if (!mine) {
+            // Click someone's name to set a private nickname for them.
+            nameEl.style.cursor = 'pointer';
+            nameEl.title = 'Set a private nickname';
+            nameEl.addEventListener('click', function () { setNick(who); });
+          }
           bubble.appendChild(nameEl);
 
           if (!m.deleted && m.replyTo) {
@@ -1800,7 +1906,7 @@
 
         threads.filter(function (t) { return t && t.convId && Array.isArray(t.participants); }).forEach(function (t) {
           const others = (t.participants || []).filter(function (p) { return p.toLowerCase() !== myName.toLowerCase(); });
-          const label = others.join(', ') || '(you)';
+          const label = others.map(function (n) { return nick(n); }).join(', ') || '(you)';
 
           const item = document.createElement('div');
           item.className = 'thread-item' + (currentView === 'dm' && currentConvId === t.convId ? ' active' : '');
@@ -1862,17 +1968,21 @@
 
       // ---------- Sending ----------
       function sendMessage() {
-        const text = chatInput.value.trim();
-        if (!text) return;
+        const raw = chatInput.value.trim();
+        if (!raw) return;
+        const text = applySlash(raw);
+        if (text === null) { chatInput.value = ''; saveDraft(); return; } // command handled locally, nothing to send
         composeStatus.textContent = '';
 
         const isDm = currentView === 'dm';
+        const ctx = draftContext();
         const path = isDm ? '/api/dm/send' : '/api/chat';
         const body = isDm ? { convId: currentConvId, text: text } : { text: text };
         if (replyingTo) body.replyTo = replyingTo.id;
 
         api(path, { method: 'POST', body: body }).then(function () {
           chatInput.value = '';
+          clearDraft(ctx);
           replyingTo = null;
           replyPreview.classList.add('hidden');
           fetchActiveMessages();
@@ -1888,8 +1998,18 @@
       }
 
       sendBtn.addEventListener('click', sendMessage);
+      chatInput.addEventListener('input', saveDraft);
       chatInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); sendMessage(); }
+        if (e.key === 'Enter') { e.preventDefault(); sendMessage(); return; }
+        if (e.key === 'Escape') { if (replyingTo) cancelReply(); return; }
+        // ArrowUp on an empty box edits your most recent message.
+        if (e.key === 'ArrowUp' && chatInput.value === '') {
+          const mine = lastMessages.filter(function (m) {
+            const who = currentView === 'global' ? m.name : m.from;
+            return who === myName && !m.deleted;
+          });
+          if (mine.length) { e.preventDefault(); startEdit(mine[mine.length - 1]); }
+        }
       });
 
       // No global "Enter goes home" on this page — Enter is meaningful
