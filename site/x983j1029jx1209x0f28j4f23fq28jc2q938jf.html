@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.</title>
+<link rel="stylesheet" href="/vm/xterm.css">
+<style>
+  :root {
+    --bg: #141413;
+    --panel: #1b1b19;
+    --border: #30302e;
+    --text: #faf9f5;
+    --muted: #b0aea5;
+    --accent: #d97757;
+  }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #shell { display: flex; flex-direction: column; height: 100%; }
+
+  #bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex: 0 0 auto;
+  }
+  #dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; }
+  #dot.boot { background: #c7a95a; }
+  #dot.up { background: #6cc067; }
+  #dot.down { background: #c75a5a; }
+  #label { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); }
+  #bar .spacer { flex: 1 1 auto; }
+  #bar button {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 5px 11px; font-size: 12px; cursor: pointer; white-space: nowrap;
+  }
+  #bar button:hover { color: var(--text); border-color: var(--muted); }
+  #bar button.primary { background: var(--accent); color: #141413; border-color: var(--accent); font-weight: 600; }
+  #bar button.primary:hover { background: #c96442; color: var(--text); }
+
+  /* The console area — just the terminal, no chrome. */
+  #stage { position: relative; flex: 1 1 auto; overflow: hidden; background: #000; }
+  #terminal { position: absolute; inset: 0; padding: 8px 10px; }
+  #terminal .xterm { height: 100%; }
+  #terminal .xterm-viewport { background: #000 !important; }
+
+  #overlay {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+    background: #000; color: var(--muted); text-align: center; padding: 24px;
+  }
+  #overlay.hidden { display: none; }
+  #overlay .spin {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid #333; border-top-color: var(--accent); animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #overlay .t { font-size: 13px; }
+  #overlay .s { font-size: 11px; color: #6f6d66; max-width: 340px; line-height: 1.6; }
+  #overlay .err { color: #e07a7a; }
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="bar">
+    <div id="dot" class="boot" title="VM status"></div>
+    <div id="label">linux · in-browser</div>
+    <div class="spacer"></div>
+    <button type="button" id="restart-btn">Restart VM</button>
+    <button type="button" id="full-btn" class="primary">Fullscreen</button>
+  </div>
+  <div id="stage">
+    <div id="terminal"></div>
+    <div id="overlay">
+      <div class="spin" id="spin"></div>
+      <div class="t" id="overlay-title">Booting Linux…</div>
+      <div class="s" id="overlay-sub">First boot downloads a ~8&nbsp;MB disk image, then runs entirely in your browser. No server, nothing leaves this tab.</div>
+    </div>
+  </div>
+</div>
+
+<script src="/vm/xterm.js"></script>
+<script src="/vm/libv86.js"></script>
+<script>
+  (function () {
+    "use strict";
+
+    const ACCESS_KEY = "unlockedAccess";
+    const HOME_PAGE = "/";
+
+    // Same direct-access guard as the other hidden pages.
+    if (sessionStorage.getItem(ACCESS_KEY) !== "console") {
+      window.location.replace(HOME_PAGE);
+      return;
+    }
+    sessionStorage.removeItem(ACCESS_KEY);
+
+    const dot = document.getElementById("dot");
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlay-title");
+    const overlaySub = document.getElementById("overlay-sub");
+    const spin = document.getElementById("spin");
+    const stage = document.getElementById("stage");
+    const terminal = document.getElementById("terminal");
+
+    const V86Class = window.V86 || window.V86Starter;
+    let emulator = null;
+
+    function fail(msg) {
+      dot.className = "down";
+      spin.style.display = "none";
+      overlayTitle.className = "t err";
+      overlayTitle.textContent = "Couldn't start the VM";
+      overlaySub.textContent = msg;
+      overlay.classList.remove("hidden");
+    }
+
+    function boot() {
+      if (!V86Class || !window.Terminal) { fail("The emulator engine failed to load."); return; }
+      dot.className = "boot";
+      overlay.classList.remove("hidden");
+      spin.style.display = "";
+      overlayTitle.className = "t";
+      overlayTitle.textContent = "Booting Linux…";
+      terminal.innerHTML = ""; // clear any prior terminal before (re)creating one
+
+      try {
+        emulator = new V86Class({
+          wasm_path: "/vm/v86.wasm",
+          memory_size: 128 * 1024 * 1024,
+          vga_memory_size: 4 * 1024 * 1024,
+          serial_container_xtermjs: terminal, // the Linux image logs to the serial console
+          bios: { url: "/vm/seabios.bin" },
+          vga_bios: { url: "/vm/vgabios.bin" },
+          cdrom: { url: "/vm/linux4.iso" },
+          autostart: true,
+        });
+      } catch (e) {
+        fail(String(e && e.message ? e.message : e));
+        return;
+      }
+
+      let cleared = false;
+      function markRunning() {
+        if (cleared) return;
+        cleared = true;
+        dot.className = "up";
+        overlay.classList.add("hidden");
+      }
+      // First byte out of the serial port = the kernel is talking. Best signal.
+      emulator.add_listener("serial0-output-byte", markRunning);
+      emulator.add_listener("emulator-started", function () { setTimeout(markRunning, 2000); });
+      setTimeout(markRunning, 15000); // safety net
+    }
+
+    document.getElementById("restart-btn").addEventListener("click", function () {
+      if (emulator) { try { emulator.destroy(); } catch (e) {} emulator = null; }
+      boot();
+    });
+
+    document.getElementById("full-btn").addEventListener("click", function () {
+      if (document.fullscreenElement) { document.exitFullscreen(); }
+      else if (stage.requestFullscreen) { stage.requestFullscreen(); }
+    });
+
+    boot();
+  })();
+</script>
+</body>
+</html>
