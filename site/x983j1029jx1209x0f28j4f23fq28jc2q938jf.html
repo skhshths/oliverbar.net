@@ -32,6 +32,7 @@
   #dot.up { background: #6cc067; }
   #dot.down { background: #c75a5a; }
   #label { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); }
+  #savenote { font-size: 11px; color: #6f6d66; }
   #bar .spacer { flex: 1 1 auto; }
   #bar button {
     background: transparent; color: var(--muted);
@@ -39,6 +40,7 @@
     padding: 5px 11px; font-size: 12px; cursor: pointer; white-space: nowrap;
   }
   #bar button:hover { color: var(--text); border-color: var(--muted); }
+  #bar button:disabled { opacity: 0.5; cursor: default; }
   #bar button.primary { background: var(--accent); color: #141413; border-color: var(--accent); font-weight: 600; }
   #bar button.primary:hover { background: #c96442; color: var(--text); }
 
@@ -60,7 +62,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   #overlay .t { font-size: 13px; }
-  #overlay .s { font-size: 11px; color: #6f6d66; max-width: 340px; line-height: 1.6; }
+  #overlay .s { font-size: 11px; color: #6f6d66; max-width: 360px; line-height: 1.6; }
   #overlay .err { color: #e07a7a; }
 </style>
 </head>
@@ -69,8 +71,10 @@
   <div id="bar">
     <div id="dot" class="boot" title="VM status"></div>
     <div id="label">linux · in-browser</div>
+    <div id="savenote"></div>
     <div class="spacer"></div>
-    <button type="button" id="restart-btn">Restart VM</button>
+    <button type="button" id="save-btn">Save session</button>
+    <button type="button" id="fresh-btn">Fresh start</button>
     <button type="button" id="full-btn" class="primary">Fullscreen</button>
   </div>
   <div id="stage">
@@ -99,6 +103,11 @@
     }
     sessionStorage.removeItem(ACCESS_KEY);
 
+    // Bump this if the disk image ever changes — it invalidates old saved
+    // snapshots, which would otherwise be incompatible with a new image.
+    const IMG_VER = "linux4-1";
+    const DB_NAME = "piConsole", STORE = "vm", KEY = "state";
+
     const dot = document.getElementById("dot");
     const overlay = document.getElementById("overlay");
     const overlayTitle = document.getElementById("overlay-title");
@@ -106,9 +115,50 @@
     const spin = document.getElementById("spin");
     const stage = document.getElementById("stage");
     const terminal = document.getElementById("terminal");
+    const saveBtn = document.getElementById("save-btn");
+    const freshBtn = document.getElementById("fresh-btn");
+    const savenote = document.getElementById("savenote");
 
     const V86Class = window.V86 || window.V86Starter;
     let emulator = null;
+    let saving = false;
+
+    // ---------- IndexedDB: the saved VM snapshot lives here (this browser only) ----------
+    function openDb() {
+      return new Promise(function (res, rej) {
+        const r = indexedDB.open(DB_NAME, 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore(STORE); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      });
+    }
+    function idbGet() {
+      return openDb().then(function (db) {
+        return new Promise(function (res) {
+          const tx = db.transaction(STORE, "readonly").objectStore(STORE).get(KEY);
+          tx.onsuccess = function () { res(tx.result || null); };
+          tx.onerror = function () { res(null); };
+        });
+      }).catch(function () { return null; });
+    }
+    function idbPut(rec) {
+      return openDb().then(function (db) {
+        return new Promise(function (res, rej) {
+          const tx = db.transaction(STORE, "readwrite").objectStore(STORE).put(rec, KEY);
+          tx.onsuccess = function () { res(); };
+          tx.onerror = function () { rej(tx.error); };
+        });
+      });
+    }
+    function idbClear() {
+      return openDb().then(function (db) {
+        return new Promise(function (res) {
+          const tx = db.transaction(STORE, "readwrite").objectStore(STORE).delete(KEY);
+          tx.onsuccess = function () { res(); };
+          tx.onerror = function () { res(); };
+        });
+      }).catch(function () {});
+    }
 
     function fail(msg) {
       dot.className = "down";
@@ -119,27 +169,33 @@
       overlay.classList.remove("hidden");
     }
 
-    function boot() {
+    function boot(stateBuffer) {
       if (!V86Class || !window.Terminal) { fail("The emulator engine failed to load."); return; }
       dot.className = "boot";
       overlay.classList.remove("hidden");
       spin.style.display = "";
       overlayTitle.className = "t";
-      overlayTitle.textContent = "Booting Linux…";
-      terminal.innerHTML = ""; // clear any prior terminal before (re)creating one
+      overlayTitle.textContent = stateBuffer ? "Resuming your saved session…" : "Booting Linux…";
+      terminal.innerHTML = "";
+
+      const opts = {
+        wasm_path: "/vm/v86.wasm",
+        memory_size: 64 * 1024 * 1024,
+        vga_memory_size: 4 * 1024 * 1024,
+        serial_container_xtermjs: terminal,
+        bios: { url: "/vm/seabios.bin" },
+        vga_bios: { url: "/vm/vgabios.bin" },
+        cdrom: { url: "/vm/linux4.iso" },
+        autostart: true,
+      };
+      if (stateBuffer) opts.initial_state = { buffer: stateBuffer };
 
       try {
-        emulator = new V86Class({
-          wasm_path: "/vm/v86.wasm",
-          memory_size: 128 * 1024 * 1024,
-          vga_memory_size: 4 * 1024 * 1024,
-          serial_container_xtermjs: terminal, // the Linux image logs to the serial console
-          bios: { url: "/vm/seabios.bin" },
-          vga_bios: { url: "/vm/vgabios.bin" },
-          cdrom: { url: "/vm/linux4.iso" },
-          autostart: true,
-        });
+        emulator = new V86Class(opts);
       } catch (e) {
+        // A corrupt/incompatible snapshot shouldn't brick the page: wipe it
+        // and boot clean.
+        if (stateBuffer) { idbClear(); boot(null); return; }
         fail(String(e && e.message ? e.message : e));
         return;
       }
@@ -151,15 +207,36 @@
         dot.className = "up";
         overlay.classList.add("hidden");
       }
-      // First byte out of the serial port = the kernel is talking. Best signal.
       emulator.add_listener("serial0-output-byte", markRunning);
       emulator.add_listener("emulator-started", function () { setTimeout(markRunning, 2000); });
-      setTimeout(markRunning, 15000); // safety net
+      setTimeout(markRunning, 15000);
     }
 
-    document.getElementById("restart-btn").addEventListener("click", function () {
-      if (emulator) { try { emulator.destroy(); } catch (e) {} emulator = null; }
-      boot();
+    function saveSession(quiet) {
+      if (!emulator || saving) return Promise.resolve();
+      saving = true;
+      if (!quiet) { saveBtn.disabled = true; savenote.textContent = "Saving…"; }
+      return emulator.save_state().then(function (buffer) {
+        return idbPut({ ver: IMG_VER, buffer: buffer, at: Date.now() });
+      }).then(function () {
+        savenote.textContent = "Saved ✓ — resumes next visit";
+      }).catch(function (e) {
+        savenote.textContent = quiet ? "" : "Save failed: " + (e && e.message ? e.message : e);
+      }).then(function () {
+        saving = false;
+        saveBtn.disabled = false;
+      });
+    }
+
+    saveBtn.addEventListener("click", function () { saveSession(false); });
+
+    freshBtn.addEventListener("click", function () {
+      if (!window.confirm("Wipe your saved session and boot a clean Linux? This can't be undone.")) return;
+      idbClear().then(function () {
+        savenote.textContent = "";
+        if (emulator) { try { emulator.destroy(); } catch (e) {} emulator = null; }
+        boot(null);
+      });
     });
 
     document.getElementById("full-btn").addEventListener("click", function () {
@@ -167,7 +244,17 @@
       else if (stage.requestFullscreen) { stage.requestFullscreen(); }
     });
 
-    boot();
+    // Auto-save when you switch away from the tab — a natural, quiet save point.
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) saveSession(true);
+    });
+
+    // Resume a saved snapshot if there is one; otherwise boot fresh.
+    idbGet().then(function (rec) {
+      const usable = rec && rec.ver === IMG_VER && rec.buffer;
+      if (usable) savenote.textContent = "restored your saved session";
+      boot(usable ? rec.buffer : null);
+    });
   })();
 </script>
 </body>
