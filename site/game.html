@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rpg</title>
+<style>
+  :root {
+    --bg: #141413; --panel: #1b1b19; --panel-2: #232320; --border: #30302e;
+    --text: #faf9f5; --muted: #b0aea5; --dim: #6f6d66;
+    --accent: #c7965a; --accent-dim: #8a6a3f; --gold: #e8c56a;
+    --hp: #6cc067; --hp-bg: #2a2a27; --xp: #c7965a;
+    --dmg: #e05a4a; --miss: #7a7870; --up: #6cc067; --danger: #c75a5a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-user-select: none; user-select: none; }
+  button { font-family: inherit; cursor: pointer; }
+  input { font-family: inherit; }
+
+  /* ---- login ---- */
+  #login { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); z-index: 60; }
+  .loginbox { width: 300px; text-align: center; }
+  .loginbox .logo { font-size: 30px; margin-bottom: 4px; }
+  .loginbox h1 { font-size: 18px; margin: 0 0 2px; letter-spacing: .5px; }
+  .loginbox p { color: var(--dim); font-size: 12px; margin: 0 0 20px; line-height: 1.5; }
+  .loginbox input { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 14px; margin-bottom: 10px; }
+  .loginbox button { width: 100%; padding: 11px; border-radius: 10px; border: none;
+    background: var(--accent); color: #1a1508; font-weight: 600; font-size: 14px; }
+  .loginbox .err { color: var(--danger); font-size: 12.5px; min-height: 16px; margin-top: 8px; }
+
+  /* ---- shell ---- */
+  #game { display: none; max-width: 940px; margin: 0 auto; padding: 12px 14px 50px; }
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .topbar .title { font-size: 16px; font-weight: 700; letter-spacing: .5px; }
+  .topbar .spacer { flex: 1; }
+  .pill { background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
+    padding: 5px 12px; font-size: 12.5px; display: flex; align-items: center; gap: 5px; }
+  .pill.coins { color: var(--gold); }
+  .topbar .logout { background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 10px; border-radius: 8px; font-size: 12px; }
+
+  .boss-banner { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px;
+    background: var(--panel); display: flex; align-items: center; gap: 12px; font-size: 13.5px; }
+  .boss-banner .emoji { font-size: 20px; }
+  .boss-banner .txt { flex: 1; }
+  .boss-banner .txt b { color: var(--gold); }
+  .boss-banner.active { border-color: var(--accent); background: linear-gradient(90deg, rgba(199,150,90,.12), var(--panel)); }
+  .boss-banner .fight-boss { background: var(--danger); border: none; color: #fff; font-weight: 600;
+    padding: 8px 16px; border-radius: 9px; font-size: 13px; display: none; }
+  .boss-banner.active .fight-boss { display: block; }
+  .boss-banner .cd { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .ticker { height: 26px; overflow: hidden; border: 1px solid var(--border); border-radius: 9px;
+    background: var(--panel); margin-bottom: 12px; display: flex; align-items: center; padding: 0 10px; font-size: 12px; }
+  .ticker .lbl { color: var(--gold); margin-right: 8px; flex: 0 0 auto; }
+  .ticker .items { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ticker .items b { color: var(--text); }
+
+  .cols { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .card + .card { margin-top: 12px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--dim); margin: 0 0 10px; }
+
+  .doll-wrap { display: flex; gap: 14px; align-items: center; }
+  .doll { flex: 0 0 auto; }
+  .whoami { font-size: 15px; font-weight: 600; }
+  .whoami small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; margin-top: 2px; }
+  .skills { margin-top: 6px; }
+  .skill { margin-bottom: 8px; }
+  .skill .row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+  .skill .row .nm { color: var(--muted); text-transform: capitalize; }
+  .skill .row .lv { color: var(--text); font-weight: 600; }
+  .skill .bar { height: 5px; background: var(--hp-bg); border-radius: 4px; overflow: hidden; }
+  .skill .bar > div { height: 100%; background: var(--xp); transition: width .3s; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tabs button { background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+    padding: 7px 14px; border-radius: 9px; font-size: 13px; }
+  .tabs button.active { background: var(--accent); border-color: var(--accent); color: #1a1508; font-weight: 600; }
+  .panel { display: none; } .panel.active { display: block; }
+
+  /* world */
+  #world-wrap { position: relative; }
+  #world { width: 100%; height: 400px; display: block; border-radius: 10px; background: #14140f; touch-action: none; }
+  .world-hud { position: absolute; top: 10px; left: 12px; font-size: 12px; color: var(--muted);
+    background: rgba(0,0,0,.35); padding: 4px 9px; border-radius: 7px; pointer-events: none; }
+  .world-hud b { color: var(--text); }
+  .hotbar { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+  .hb { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 7px 14px;
+    text-align: center; min-width: 82px; color: var(--muted); }
+  .hb .k { font-size: 10px; color: var(--dim); }
+  .hb .n { font-size: 13px; margin-top: 1px; }
+  .hb .e { font-size: 16px; }
+  .hb.active { border-color: var(--accent); background: rgba(199,150,90,.14); color: var(--text); }
+  .hb.locked { opacity: .5; }
+  .controls-help { text-align: center; color: var(--dim); font-size: 12px; margin-top: 9px; line-height: 1.6; }
+  .controls-help kbd { background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px;
+    padding: 1px 6px; font-size: 11px; font-family: inherit; color: var(--muted); }
+  .world-log { margin-top: 10px; min-height: 18px; font-size: 12.5px; color: var(--muted); text-align: center; }
+  .world-log .g { color: var(--gold); }
+
+  /* inventory / shop grids */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .item { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
+  .item .n { font-size: 13px; font-weight: 600; }
+  .item .n .glow { color: var(--gold); }
+  .item .meta { font-size: 11px; color: var(--dim); margin: 2px 0 7px; }
+  .item .acts { display: flex; gap: 5px; flex-wrap: wrap; }
+  .item .acts button { flex: 1; min-width: 44px; font-size: 11.5px; padding: 5px 6px; border-radius: 7px;
+    border: 1px solid var(--border); background: var(--panel); color: var(--muted); }
+  .item .acts button.primary { background: var(--accent); color: #1a1508; border-color: var(--accent); font-weight: 600; }
+  .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,.15); }
+
+  .slots { display: flex; flex-direction: column; gap: 8px; }
+  .slot { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
+  .slot .sn { font-size: 11px; color: var(--dim); text-transform: uppercase; width: 58px; flex: 0 0 auto; }
+  .slot .si { flex: 1; font-size: 13px; }
+  .slot .si small { color: var(--dim); }
+  .slot .sa { display: flex; gap: 5px; }
+  .slot .sa button { font-size: 11.5px; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); }
+
+  table.board { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.board th { text-align: left; color: var(--dim); font-weight: 500; font-size: 11px; text-transform: uppercase; padding: 6px 8px; }
+  table.board td { padding: 7px 8px; border-top: 1px solid var(--border); }
+  table.board td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .rank { color: var(--gold); font-weight: 700; }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 70; }
+  .modal.show { display: flex; }
+  .modal .box { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; width: 300px; }
+  .modal .box h3 { margin: 0 0 12px; font-size: 15px; }
+  .dye-opt { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border: 1px solid var(--border);
+    border-radius: 9px; margin-bottom: 7px; cursor: pointer; font-size: 13px; }
+  .dye-opt:hover { border-color: var(--accent); }
+  .dye-opt .sw { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(255,255,255,.2); }
+  .modal .close { width: 100%; margin-top: 6px; padding: 9px; border-radius: 9px; border: 1px solid var(--border); background: none; color: var(--muted); }
+
+  .celebrate { position: fixed; inset: 0; pointer-events: none; z-index: 80; opacity: 0; }
+  .celebrate.show { animation: flashGold 1.4s ease-out; }
+  @keyframes flashGold { 0%{opacity:0} 15%{opacity:.5; background: radial-gradient(circle, rgba(232,197,106,.4), transparent 70%)} 100%{opacity:0} }
+
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--panel-2);
+    border: 1px solid var(--accent-dim); color: var(--text); padding: 11px 18px; border-radius: 11px; font-size: 13px;
+    z-index: 90; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90%; text-align: center; }
+  .toast.show { opacity: 1; }
+  .toast .g { color: var(--gold); font-weight: 700; }
+  .empty { color: var(--dim); font-size: 13px; text-align: center; padding: 26px 0; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="loginbox">
+    <div class="logo">⚔️</div>
+    <h1>rpg</h1>
+    <p>Sign in with your site account.<br>New name + PIN just creates one.</p>
+    <input id="lg-name" placeholder="name" maxlength="24" autocomplete="off">
+    <input id="lg-pin" type="password" placeholder="PIN" maxlength="32" autocomplete="off">
+    <button id="lg-go">Enter the world</button>
+    <div class="err" id="lg-err"></div>
+  </div>
+</div>
+
+<div id="game">
+  <div class="topbar">
+    <span class="title">⚔️ rpg</span>
+    <span class="spacer"></span>
+    <span class="pill coins">🪙 <b id="coins">0</b></span>
+    <span class="pill">Cb <b id="cblevel">3</b></span>
+    <span class="pill" id="whopill">—</span>
+    <button class="logout" id="logout">Log out</button>
+  </div>
+
+  <div class="boss-banner" id="boss-banner">
+    <span class="emoji">🔥</span>
+    <span class="txt" id="boss-txt">The Molten Warden stirs…</span>
+    <span class="cd" id="boss-cd"></span>
+    <button class="fight-boss" id="fight-boss">Go to the Warden</button>
+  </div>
+
+  <div class="ticker">
+    <span class="lbl">⭐ Rare drops</span>
+    <span class="items" id="ticker-items">…</span>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="card">
+        <div class="doll-wrap">
+          <div class="doll" id="doll"></div>
+          <div><div class="whoami"><span id="who">Hero</span><small id="who-sub">Combat 3</small></div></div>
+        </div>
+        <div class="skills" id="skills"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tabs">
+        <button data-tab="fight" class="active">World</button>
+        <button data-tab="bag">Bag</button>
+        <button data-tab="gear">Gear</button>
+        <button data-tab="shop">Shop</button>
+        <button data-tab="board">Ranks</button>
+      </div>
+
+      <div class="panel active" id="panel-fight">
+        <div class="card">
+          <div id="world-wrap">
+            <canvas id="world"></canvas>
+            <div class="world-hud" id="world-hud">HP <b id="hud-hp">10/10</b></div>
+          </div>
+          <div class="hotbar" id="hotbar">
+            <div class="hb active" data-style="melee"><div class="k">1</div><div class="e">⚔️</div><div class="n">Melee</div></div>
+            <div class="hb" data-style="ranged"><div class="k">2</div><div class="e">🏹</div><div class="n">Ranged</div></div>
+            <div class="hb" data-style="magic"><div class="k">3</div><div class="e">✨</div><div class="n">Magic</div></div>
+          </div>
+          <div class="controls-help">
+            <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>← ↑ → ↓</kbd> aim · <kbd>Space</kbd> attack (hold to keep swinging) · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> style
+          </div>
+          <div class="world-log" id="world-log">Aim with the arrow keys, then hold Space to attack that way.</div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-bag"><div class="card"><h2>Your bag</h2><div class="grid" id="bag"></div></div></div>
+      <div class="panel" id="panel-gear"><div class="card"><h2>Equipment</h2><div class="slots" id="slots"></div></div></div>
+      <div class="panel" id="panel-shop"><div class="card"><h2>Shop</h2><div class="grid" id="shop"></div></div></div>
+      <div class="panel" id="panel-board"><div class="card"><h2>Leaderboard</h2><div id="board"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="dye-modal"><div class="box"><h3 id="dye-title">Dye piece</h3><div id="dye-list"></div><button class="close" id="dye-close">Cancel</button></div></div>
+<div class="celebrate" id="celebrate"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var API = "https://piapi.oliverbar.net";
+  var SESS_KEY = "rpgSession";
+  var token = "";
+  var DEFS = null, STATE = null;
+  var lastFeedTs = 0;
+
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s){var d=document.createElement("div");d.textContent=s==null?"":s;return d.innerHTML;}
+  var toastTimer;
+  function toast(html, ms) {
+    var t = $("toast"); t.innerHTML = html; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.classList.remove("show"); }, ms || 2200);
+  }
+  function api(path, method, body) {
+    return fetch(API + path, {
+      method: method || "GET",
+      headers: { "Content-Type": "application/json", "X-Chat-Session": token },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); });
+  }
+
+  // ---------- login ----------
+  function doLogin(name, pin) {
+    return fetch(API + "/api/chat/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name, pin: pin }),
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+  }
+  $("lg-go").addEventListener("click", function () {
+    var name = $("lg-name").value.trim(), pin = $("lg-pin").value;
+    if (!name || !pin) { $("lg-err").textContent = "Name and PIN required."; return; }
+    $("lg-err").textContent = "";
+    doLogin(name, pin).then(function (r) {
+      if (!r.ok) { $("lg-err").textContent = r.j.error || "Login failed"; return; }
+      token = r.j.token;
+      try { localStorage.setItem(SESS_KEY, token); } catch (e) {}
+      boot();
+    }).catch(function () { $("lg-err").textContent = "Can't reach the server."; });
+  });
+  $("lg-pin").addEventListener("keydown", function (e) { if (e.key === "Enter") $("lg-go").click(); });
+  $("logout").addEventListener("click", function () {
+    try { localStorage.removeItem(SESS_KEY); } catch (e) {}
+    token = ""; location.reload();
+  });
+
+  // ---------- boot ----------
+  function boot() {
+    Promise.all([api("/api/game/defs"), api("/api/game/state")]).then(function (res) {
+      if (res[1].status === 401) { showLogin(); return; }
+      DEFS = res[0].j; STATE = res[1].j;
+      $("login").style.display = "none"; $("game").style.display = "block";
+      renderAll();
+      initWorld();
+      pollWorld(); setInterval(pollWorld, 3000);
+      pollFeed(true); setInterval(function(){ pollFeed(false); }, 5000);
+    }).catch(function () { showLogin(); });
+  }
+  function showLogin(){ $("login").style.display = "flex"; $("game").style.display = "none"; $("lg-name").focus(); }
+
+  // ---------- rendering (menus) ----------
+  function itemName(id) { return DEFS.items[id] ? DEFS.items[id].name : id; }
+  function colorForSlot(slotObj) {
+    if (!slotObj || !slotObj.item) return null;
+    var it = DEFS.items[slotObj.item];
+    if (slotObj.dye) { var d = DEFS.items[slotObj.dye]; if (d) return d.color; }
+    return it ? it.base : "#888";
+  }
+  function renderDoll() {
+    var eq = STATE.equipment;
+    var helm = colorForSlot(eq.helmet), body = colorForSlot(eq.body), legs = colorForSlot(eq.legs);
+    var wep = eq.weapon && eq.weapon.item ? (DEFS.items[eq.weapon.item].glow ? "#e8c56a" : "#c3c7cc") : null;
+    var skin = "#c9a17a", tunic = "#3a3a38";
+    function pc(c, fallback, id) { if (c === "prismatic") return { fill: "#c0392b", prism: id }; return { fill: c || fallback, prism: null }; }
+    var h = pc(helm, skin, "p_helm"), b = pc(body, tunic, "p_body"), l = pc(legs, tunic, "p_legs");
+    var prisms = [h, b, l].filter(function (x) { return x.prism; }).map(function (x) { return x.prism; });
+    var svg = '<svg width="72" height="120" viewBox="0 0 78 128">' +
+      '<circle cx="39" cy="20" r="14" fill="' + h.fill + '"' + (h.prism ? ' id="p_helm"' : '') + '/>' +
+      '<rect x="22" y="36" width="34" height="40" rx="5" fill="' + b.fill + '"' + (b.prism ? ' id="p_body"' : '') + '/>' +
+      '<rect x="14" y="38" width="8" height="34" rx="4" fill="' + b.fill + '"/>' +
+      '<rect x="56" y="38" width="8" height="34" rx="4" fill="' + b.fill + '"/>' +
+      '<rect x="24" y="78" width="13" height="40" rx="4" fill="' + l.fill + '"' + (l.prism ? ' id="p_legs"' : '') + '/>' +
+      '<rect x="41" y="78" width="13" height="40" rx="4" fill="' + l.fill + '"/>' +
+      (wep ? '<rect x="62" y="30" width="5" height="48" rx="2" fill="' + wep + '"/><rect x="58" y="52" width="13" height="4" rx="2" fill="' + wep + '"/>' : '') +
+      '</svg>';
+    $("doll").innerHTML = svg;
+    if (prisms.length) startPrism(prisms);
+  }
+  var prismTimer = null, prismHue = 0;
+  function startPrism(ids) {
+    if (prismTimer) clearInterval(prismTimer);
+    prismTimer = setInterval(function () {
+      prismHue = (prismHue + 8) % 360;
+      ids.forEach(function (id) { var el = $(id); if (el) el.setAttribute("fill", "hsl(" + prismHue + ",70%,55%)"); });
+    }, 60);
+  }
+  function renderSkills() {
+    var order = ["attack", "strength", "defence", "hitpoints", "ranged", "magic"];
+    var html = "";
+    order.forEach(function (sk) {
+      var b = STATE.bars[sk]; if (!b) return;
+      var span = b.nextAt - b.curBase, into = b.xp - b.curBase;
+      var pct = span > 0 ? Math.max(0, Math.min(100, into / span * 100)) : 100;
+      html += '<div class="skill"><div class="row"><span class="nm">' + sk + '</span><span class="lv">' + b.level + '</span></div>' +
+        '<div class="bar"><div style="width:' + pct + '%"></div></div></div>';
+    });
+    $("skills").innerHTML = html;
+  }
+  function renderHeader() {
+    $("coins").textContent = STATE.coins.toLocaleString();
+    $("cblevel").textContent = STATE.combat;
+    $("who").textContent = STATE.name;
+    $("who-sub").textContent = "Combat " + STATE.combat + " · " + STATE.totalKills + " kills";
+    $("whopill").textContent = STATE.name;
+  }
+  function renderBag() {
+    var inv = STATE.inventory, ids = Object.keys(inv);
+    if (!ids.length) { $("bag").innerHTML = '<div class="empty">Your bag is empty. Go grind!</div>'; return; }
+    var order = { weapon:0, armor:1, dye:2, unique:3, material:4 };
+    ids.sort(function (a, b) { return (order[DEFS.items[a].type]||9) - (order[DEFS.items[b].type]||9); });
+    var html = "";
+    ids.forEach(function (id) {
+      var it = DEFS.items[id], qty = inv[id];
+      var meta = it.type === "dye" ? '<span class="swatch" style="background:' + (it.color === "prismatic" ? "linear-gradient(90deg,#f00,#0f0,#00f)" : it.color) + '"></span>dye'
+        : it.type === "weapon" ? ("wpn · " + wpnMeta(it))
+        : it.type === "armor" ? ("armour · +" + (it.def||0) + " def")
+        : it.type === "unique" ? "trophy" : "material";
+      var acts = "";
+      if (it.type === "weapon" || it.type === "armor") acts += '<button class="primary" data-eq="' + id + '">Equip</button>';
+      if (it.type === "dye") acts += '<button class="primary" data-dye="' + id + '">Apply</button>';
+      if (it.value) acts += '<button data-sell="' + id + '">Sell ' + it.value + '</button>';
+      html += '<div class="item"><div class="n"><span class="' + (it.glow?'glow':'') + '">' + esc(it.name) + '</span>' + (qty>1?' ×'+qty:'') + '</div>' +
+        '<div class="meta">' + meta + '</div><div class="acts">' + acts + '</div></div>';
+    });
+    var bag = $("bag"); bag.innerHTML = html;
+    bag.querySelectorAll("[data-eq]").forEach(function(b){ b.addEventListener("click", function(){ doEquip(b.getAttribute("data-eq")); }); });
+    bag.querySelectorAll("[data-sell]").forEach(function(b){ b.addEventListener("click", function(){ doSell(b.getAttribute("data-sell")); }); });
+    bag.querySelectorAll("[data-dye]").forEach(function(b){ b.addEventListener("click", function(){ openDyePicker(b.getAttribute("data-dye")); }); });
+  }
+  function wpnMeta(it) {
+    if (it.rng) return "+" + it.rng + " ranged";
+    if (it.mag) return "+" + it.mag + " magic";
+    return "+" + (it.str||0) + " str/+" + (it.atk||0) + " atk";
+  }
+  function renderGear() {
+    var slots = [["weapon","Weapon"],["helmet","Helmet"],["body","Body"],["legs","Legs"]];
+    var html = "";
+    slots.forEach(function (s) {
+      var key = s[0], eq = STATE.equipment[key];
+      if (eq && eq.item) {
+        var it = DEFS.items[eq.item];
+        var label = '<span style="' + (it.glow?'color:var(--gold)':'') + '">' + esc(it.name) + '</span>';
+        var dyeInfo = "";
+        if (eq.dye) { var d = DEFS.items[eq.dye]; dyeInfo = ' <small>· <span class="swatch" style="background:' + (d.color==="prismatic"?"linear-gradient(90deg,#f00,#0f0,#00f)":d.color) + '"></span>' + esc(d.name) + '</small>'; }
+        var dyeBtn = it.dyeable ? '<button data-dyeslot="' + key + '">Dye</button>' : '';
+        html += '<div class="slot"><span class="sn">' + s[1] + '</span><span class="si">' + label + dyeInfo + '</span><span class="sa">' + dyeBtn + '<button data-unequip="' + key + '">Remove</button></span></div>';
+      } else {
+        html += '<div class="slot"><span class="sn">' + s[1] + '</span><span class="si"><small>empty</small></span><span class="sa"></span></div>';
+      }
+    });
+    var el = $("slots"); el.innerHTML = html;
+    el.querySelectorAll("[data-unequip]").forEach(function(b){ b.addEventListener("click", function(){ doUnequip(b.getAttribute("data-unequip")); }); });
+    el.querySelectorAll("[data-dyeslot]").forEach(function(b){ b.addEventListener("click", function(){ openDyeForSlot(b.getAttribute("data-dyeslot")); }); });
+  }
+  function renderShop() {
+    var html = "";
+    Object.keys(DEFS.items).forEach(function (id) {
+      var it = DEFS.items[id]; if (!it.buy) return;
+      var meta = it.type === "weapon" ? wpnMeta(it) : ("+" + (it.def||0) + " def");
+      var afford = STATE.coins >= it.buy;
+      html += '<div class="item"><div class="n">' + esc(it.name) + '</div><div class="meta">' + meta + '</div>' +
+        '<div class="acts"><button class="' + (afford?'primary':'') + '" data-buy="' + id + '"' + (afford?'':' disabled') + '>🪙 ' + it.buy + '</button></div></div>';
+    });
+    var el = $("shop"); el.innerHTML = html;
+    el.querySelectorAll("[data-buy]").forEach(function(b){ b.addEventListener("click", function(){ doBuy(b.getAttribute("data-buy")); }); });
+  }
+  function renderBoard() {
+    api("/api/game/leaderboard").then(function (r) {
+      var rows = r.j || [];
+      if (!rows.length) { $("board").innerHTML = '<div class="empty">No heroes yet.</div>'; return; }
+      var html = '<table class="board"><tr><th>#</th><th>Name</th><th>Total</th><th>Cb</th><th>Kills</th><th>Boss</th></tr>';
+      rows.forEach(function (p, i) {
+        html += '<tr><td class="rank">' + (i+1) + '</td><td>' + esc(p.name) + '</td><td class="r">' + p.totalLevel + '</td>' +
+          '<td class="r">' + p.combat + '</td><td class="r">' + p.kills + '</td><td class="r">' + p.bossKills + '</td></tr>';
+      });
+      $("board").innerHTML = html + '</table>';
+    });
+  }
+  function renderAll() { renderHeader(); renderDoll(); renderSkills(); renderBag(); renderGear(); renderShop(); }
+
+  // ---------- tabs ----------
+  var activeTab = "fight";
+  document.querySelectorAll(".tabs button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".tabs button").forEach(function(x){ x.classList.remove("active"); });
+      document.querySelectorAll(".panel").forEach(function(x){ x.classList.remove("active"); });
+      b.classList.add("active"); activeTab = b.getAttribute("data-tab");
+      $("panel-" + activeTab).classList.add("active");
+      if (activeTab === "board") renderBoard();
+      if (activeTab === "fight" && world) resizeCanvas();
+    });
+  });
+
+  // ================= WORLD ENGINE =================
+  var cv, ctx, world = null;
+  var keys = {}, style = "melee", busy = false, lastAttack = 0;
+  var facing = Math.PI / 2;          // radians; starts facing "down" toward the screen
+  var ARC_HALF = 1.15;               // ~66° each side → a forgiving ~130° attack cone
+  var POINT_BLANK = 30;              // this close, any facing connects
+  var floats = [];       // floating combat text {x,y,vy,life,txt,color,size}
+  var projectiles = [];  // ranged/magic shots {x,y,tx,ty,life}
+  var camera = { x: 0, y: 0 };
+  var WORLD = { w: 1500, h: 1050 };
+  var REACH = { melee: 42, ranged: 165, magic: 165 };
+
+  var ZONES = {
+    rat:      { x: 230, y: 200,  n: 4, r: 130 },
+    goblin:   { x: 620, y: 180,  n: 4, r: 140 },
+    skeleton: { x: 1080, y: 260, n: 4, r: 150 },
+    wolf:     { x: 300, y: 640,  n: 3, r: 150 },
+    golem:    { x: 780, y: 720,  n: 3, r: 160 },
+    wraith:   { x: 1230, y: 720, n: 3, r: 150 },
+  };
+  var BOSS_SPOT = { x: 750, y: 470 };
+
+  function initWorld() {
+    cv = $("world"); ctx = cv.getContext("2d");
+    world = { enemies: [], boss: null };
+    Object.keys(ZONES).forEach(function (type) {
+      var z = ZONES[type];
+      for (var i = 0; i < z.n; i++) {
+        var a = (i / z.n) * Math.PI * 2 + Math.random();
+        var rr = z.r * (0.4 + Math.random() * 0.6);
+        world.enemies.push(makeEnemy(type, z.x + Math.cos(a) * rr, z.y + Math.sin(a) * rr));
+      }
+    });
+    world.player = { x: 230, y: 340, r: 15 };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    requestAnimationFrame(loop);
+  }
+  function makeEnemy(type, x, y) {
+    var def = DEFS.enemies[type];
+    return { type: type, def: def, homeX: x, homeY: y, x: x, y: y, r: 16,
+      hp: def.hp, maxHp: def.hp, alive: true, respawnAt: 0, wanderT: Math.random() * 100, dmgFlash: 0 };
+  }
+  function resizeCanvas() {
+    if (!cv) return;
+    var w = cv.clientWidth || 600;
+    cv.width = w; cv.height = 400;
+  }
+
+  var EMOJI = { rat:"🐀", goblin:"👺", skeleton:"💀", wolf:"🐺", golem:"🗿", wraith:"👻", boss:"🔥" };
+
+  // input
+  // WASD (+space) are held; arrow keys snap your facing direction.
+  var MOVE_KEYS = [" ","w","a","s","d"];
+  var FACE = { arrowup: -Math.PI/2, arrowdown: Math.PI/2, arrowleft: Math.PI, arrowright: 0 };
+  window.addEventListener("keydown", function (e) {
+    if ($("game").style.display === "none") return;         // login screen
+    if (activeTab !== "fight") return;                       // menus use mouse
+    var k = e.key.toLowerCase();
+    if (k === "1") { setStyle("melee"); return; }
+    if (k === "2") { setStyle("ranged"); return; }
+    if (k === "3") { setStyle("magic"); return; }
+    if (k in FACE) { facing = FACE[k]; e.preventDefault(); return; }  // aim
+    if (MOVE_KEYS.indexOf(k) === -1) return;
+    keys[k] = true;
+    e.preventDefault();
+  });
+  window.addEventListener("keyup", function (e) { keys[e.key.toLowerCase()] = false; });
+
+  function setStyle(s) {
+    style = s;
+    document.querySelectorAll(".hb").forEach(function (el) { el.classList.toggle("active", el.getAttribute("data-style") === s); });
+  }
+  document.querySelectorAll(".hb").forEach(function (el) {
+    el.addEventListener("click", function () { setStyle(el.getAttribute("data-style")); });
+  });
+  $("fight-boss").addEventListener("click", function () {
+    if (world && world.boss) { world.player.x = BOSS_SPOT.x - 60; world.player.y = BOSS_SPOT.y + 40; }
+  });
+
+  function angDiff(a, b) { var d = Math.abs(a - b) % (Math.PI * 2); return d > Math.PI ? Math.PI * 2 - d : d; }
+  // The target is the nearest enemy within reach AND inside the facing arc
+  // (or point-blank close). This is what makes aiming matter.
+  function nearestTarget() {
+    if (!world) return null;
+    var p = world.player, best = null, bestD = REACH[style] + 24;
+    var list = world.enemies.slice();
+    if (world.boss) list.push(world.boss);
+    list.forEach(function (e) {
+      if (!e.alive) return;
+      var d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (d >= bestD) return;
+      if (d > POINT_BLANK && angDiff(Math.atan2(e.y - p.y, e.x - p.x), facing) > ARC_HALF) return; // outside the cone
+      bestD = d; best = e;
+    });
+    return best;
+  }
+
+  function loop() {
+    if (!world) return;
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function update() {
+    var p = world.player, sp = 2.6, dx = 0, dy = 0;
+    if (keys["w"]) dy -= 1;
+    if (keys["s"]) dy += 1;
+    if (keys["a"]) dx -= 1;
+    if (keys["d"]) dx += 1;
+    if (dx || dy) { var m = Math.hypot(dx, dy); p.x += dx / m * sp; p.y += dy / m * sp; }
+    p.x = Math.max(16, Math.min(WORLD.w - 16, p.x));
+    p.y = Math.max(16, Math.min(WORLD.h - 16, p.y));
+    // camera follows
+    camera.x = Math.max(0, Math.min(WORLD.w - cv.width, p.x - cv.width / 2));
+    camera.y = Math.max(0, Math.min(WORLD.h - cv.height, p.y - cv.height / 2));
+
+    // enemy wander + respawn
+    var now = Date.now();
+    world.enemies.forEach(function (e) {
+      if (!e.alive) { if (now >= e.respawnAt) { e.alive = true; e.hp = e.maxHp; e.x = e.homeX; e.y = e.homeY; } return; }
+      e.wanderT += 0.02;
+      e.x += Math.cos(e.wanderT) * 0.4; e.y += Math.sin(e.wanderT * 0.7) * 0.4;
+      if (e.dmgFlash > 0) e.dmgFlash--;
+    });
+
+    // attack (hold space)
+    if (keys[" "] && !busy && now - lastAttack > 560) {
+      var t = nearestTarget();
+      if (t) { lastAttack = now; worldAttack(t); }
+    }
+
+    // floats + projectiles
+    floats.forEach(function (f) { f.y += f.vy; f.life--; });
+    floats = floats.filter(function (f) { return f.life > 0; });
+    projectiles.forEach(function (pr) { pr.life--; });
+    projectiles = projectiles.filter(function (pr) { return pr.life > 0; });
+
+    $("hud-hp").textContent = (STATE ? STATE.maxHp : 10) + "/" + (STATE ? STATE.maxHp : 10);
+  }
+
+  function worldAttack(enemy) {
+    busy = true;
+    var target = enemy.isBoss ? "boss" : enemy.type;
+    if (enemy.isBoss || (style !== "melee")) shoot(enemy);
+    api("/api/game/attack", "POST", { target: target, style: style }).then(function (r) {
+      busy = false;
+      if (!r.ok) {
+        if (r.status !== 429) { logMsg(r.j.error || "Can't attack"); }
+        return;
+      }
+      var d = r.j;
+      if (d.result === "defeat") {
+        addFloat(enemy.x, enemy.y - 20, "defeated!", "#e05a4a", 15);
+        flashPlayer();
+        logMsg("💀 The " + d.foeName + " was too strong!");
+        return;
+      }
+      // victory: drain + kill enemy in-world
+      animateKill(enemy, d);
+      applyVictory(d, enemy);
+    }).catch(function () { busy = false; });
+  }
+
+  function animateKill(enemy, d) {
+    // show the biggest few hits as splats
+    var phits = (d.hits || []).filter(function (h) { return h.by === "player" && h.dmg > 0; });
+    var shown = phits.slice(-3);
+    shown.forEach(function (h, i) {
+      setTimeout(function () { addFloat(enemy.x + (Math.random()*20-10), enemy.y - 10, "" + h.dmg, "#fff", 16); enemy.dmgFlash = 6; }, i * 90);
+    });
+    enemy.alive = false;
+    enemy.respawnAt = Date.now() + (enemy.isBoss ? 99999999 : 2600); // boss handled by world poll
+  }
+
+  function shoot(enemy) {
+    var p = world.player;
+    projectiles.push({ x: p.x, y: p.y, tx: enemy.x, ty: enemy.y, life: 10, magic: style === "magic" });
+  }
+
+  function applyVictory(d, enemy) {
+    STATE = d.state;
+    var totalXp = (d.xpGains.attack||0)+(d.xpGains.strength||0)+(d.xpGains.defence||0)+(d.xpGains.ranged||0)+(d.xpGains.magic||0);
+    if (totalXp) addFloat(world.player.x, world.player.y - 24, "+" + totalXp + " xp", "#c7965a", 13);
+    // loot log
+    var parts = [];
+    if (d.loot.coins) parts.push("🪙 " + d.loot.coins);
+    (d.loot.items || []).forEach(function (it) { parts.push((it.glow?"⭐ ":"") + it.name + (it.qty>1?" ×"+it.qty:"")); });
+    if (parts.length) logMsg((enemy && enemy.isBoss ? "Warden down! " : "") + parts.join(" · "), d.globalDrops && d.globalDrops.length);
+    renderHeader(); renderDoll(); renderSkills(); renderBag(); renderGear(); renderShop();
+    (d.levelUps || []).forEach(function (lu) { toast('<span class="g">Level up!</span> ' + lu.skill + ' is now ' + lu.level, 2400); });
+    if (d.globalDrops && d.globalDrops.length) {
+      celebrate();
+      d.globalDrops.forEach(function (g) { toast('<span class="g">⭐ RARE!</span> You got <b>' + esc(g.itemName) + '</b>!', 3200); });
+    }
+  }
+  function logMsg(html, gold) { $("world-log").innerHTML = gold ? '<span class="g">' + html + '</span>' : html; }
+  function celebrate(){ var c=$("celebrate"); c.classList.remove("show"); void c.offsetWidth; c.classList.add("show"); }
+  function addFloat(x, y, txt, color, size) { floats.push({ x: x, y: y, vy: -0.6, life: 55, txt: txt, color: color, size: size || 14 }); }
+  var playerFlash = 0;
+  function flashPlayer(){ playerFlash = 20; }
+
+  function draw() {
+    var w = cv.width, h = cv.height;
+    ctx.clearRect(0, 0, w, h);
+    // ground grid
+    ctx.fillStyle = "#14140f"; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.lineWidth = 1;
+    var grid = 50;
+    for (var gx = -(camera.x % grid); gx < w; gx += grid) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke(); }
+    for (var gy = -(camera.y % grid); gy < h; gy += grid) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
+
+    // zone labels
+    ctx.textAlign = "center";
+    Object.keys(ZONES).forEach(function (type) {
+      var z = ZONES[type], sx = z.x - camera.x, sy = z.y - camera.y - z.r + 8;
+      if (sx > -100 && sx < w + 100 && sy > -40 && sy < h + 40) {
+        ctx.fillStyle = "rgba(176,174,165,0.35)"; ctx.font = "11px sans-serif";
+        ctx.fillText(DEFS.enemies[type].name + "s  ·  lv " + DEFS.enemies[type].level, sx, sy);
+      }
+    });
+
+    var target = nearestTarget();
+
+    // aim cone (shows where an attack will land)
+    var psx = world.player.x - camera.x, psy = world.player.y - camera.y, reach = REACH[style];
+    var g = ctx.createRadialGradient(psx, psy, 6, psx, psy, reach);
+    g.addColorStop(0, style === "magic" ? "rgba(142,111,214,0.22)" : style === "ranged" ? "rgba(216,180,90,0.20)" : "rgba(199,150,90,0.20)");
+    g.addColorStop(1, "rgba(199,150,90,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(psx, psy);
+    ctx.arc(psx, psy, reach, facing - ARC_HALF, facing + ARC_HALF); ctx.closePath(); ctx.fill();
+
+    // enemies
+    var list = world.enemies.slice();
+    if (world.boss) list.push(world.boss);
+    list.forEach(function (e) {
+      if (!e.alive) return;
+      var sx = e.x - camera.x, sy = e.y - camera.y;
+      if (sx < -40 || sx > w + 40 || sy < -40 || sy > h + 40) return;
+      // target ring
+      if (e === target) {
+        ctx.strokeStyle = "rgba(199,150,90,0.9)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(sx, sy, (e.isBoss?30:22), 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.globalAlpha = e.dmgFlash > 0 ? 0.5 : 1;
+      ctx.font = (e.isBoss ? 44 : 26) + "px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(EMOJI[e.isBoss ? "boss" : e.type], sx, sy);
+      ctx.globalAlpha = 1;
+      // hp bar if damaged/boss
+      if (e.isBoss) {
+        ctx.fillStyle = "#2a2a27"; ctx.fillRect(sx-30, sy-34, 60, 5);
+        ctx.fillStyle = "#e05a4a"; ctx.fillRect(sx-30, sy-34, 60*(e.hp/e.maxHp), 5);
+      }
+    });
+    ctx.textBaseline = "alphabetic";
+
+    // projectiles
+    projectiles.forEach(function (pr) {
+      var px = pr.x - camera.x, py = pr.y - camera.y, tx = pr.tx - camera.x, ty = pr.ty - camera.y;
+      var t = 1 - pr.life / 10;
+      var cx = px + (tx - px) * t, cy = py + (ty - py) * t;
+      ctx.fillStyle = pr.magic ? "#8e6fd6" : "#d8b45a";
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+    });
+
+    // player
+    drawPlayer(world.player.x - camera.x, world.player.y - camera.y);
+
+    // floating text
+    floats.forEach(function (f) {
+      ctx.globalAlpha = Math.max(0, f.life / 55);
+      ctx.fillStyle = f.color; ctx.font = "bold " + f.size + "px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(f.txt, f.x - camera.x, f.y - camera.y);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  function drawPlayer(x, y) {
+    var eq = STATE.equipment;
+    function col(slot, fb) { var c = colorForSlot(eq[slot]); if (c === "prismatic") return "hsl(" + prismHue + ",70%,55%)"; return c || fb; }
+    if (playerFlash > 0) { playerFlash--; ctx.globalAlpha = playerFlash % 6 < 3 ? 0.4 : 1; }
+    // legs
+    ctx.fillStyle = col("legs", "#3a3a38"); ctx.fillRect(x-8, y+4, 6, 12); ctx.fillRect(x+2, y+4, 6, 12);
+    // body
+    ctx.fillStyle = col("body", "#3a3a38"); ctx.fillRect(x-9, y-8, 18, 16);
+    // head
+    ctx.fillStyle = col("helmet", "#c9a17a"); ctx.beginPath(); ctx.arc(x, y-14, 7, 0, Math.PI*2); ctx.fill();
+    // weapon nub
+    if (eq.weapon && eq.weapon.item) {
+      ctx.fillStyle = DEFS.items[eq.weapon.item].glow ? "#e8c56a" : "#c3c7cc";
+      ctx.fillRect(x+9, y-10, 3, 16);
+    }
+    ctx.globalAlpha = 1;
+  }
+  prismHue = prismHue || 1;
+  setInterval(function () { prismHue = (prismHue + 8) % 360; }, 60); // keep world prismatic moving
+
+  // ---------- gear actions ----------
+  function refresh(state) { if (!state.bars && STATE && STATE.bars) state.bars = STATE.bars; STATE = state; renderAll(); }
+  function doEquip(id) { api("/api/game/equip","POST",{item:id}).then(function(r){ if(r.ok) refresh(r.j.state); else toast(r.j.error); }); }
+  function doUnequip(slot) { api("/api/game/unequip","POST",{slot:slot}).then(function(r){ if(r.ok) refresh(r.j.state); }); }
+  function doBuy(id) { api("/api/game/buy","POST",{item:id}).then(function(r){ if(r.ok){ refresh(r.j.state); toast("Bought " + itemName(id)); } else toast(r.j.error); }); }
+  function doSell(id) { api("/api/game/sell","POST",{item:id,qty:9999}).then(function(r){ if(r.ok){ refresh(r.j.state); toast("Sold for 🪙 " + r.j.gained); } else toast(r.j.error); }); }
+
+  // dye pickers
+  var pendingDye = null;
+  function ownedDyes() { return Object.keys(STATE.inventory).filter(function(id){ return DEFS.items[id] && DEFS.items[id].type === "dye"; }); }
+  function dyeableSlots() { return ["helmet","body","legs"].filter(function(s){ var e=STATE.equipment[s]; return e && e.item && DEFS.items[e.item].dyeable; }); }
+  function openDyePicker(dyeId) {
+    var slots = dyeableSlots();
+    if (!slots.length) { toast("Equip a dyeable armour piece first."); return; }
+    pendingDye = dyeId;
+    $("dye-title").textContent = "Dye which piece with " + itemName(dyeId) + "?";
+    var html = "";
+    slots.forEach(function (s) { html += '<div class="dye-opt" data-slot="' + s + '"><span class="sw" style="background:' + colChip(dyeId) + '"></span>' + s + ' — ' + esc(DEFS.items[STATE.equipment[s].item].name) + '</div>'; });
+    openModal(html, function (el) { applyDye(el.getAttribute("data-slot"), pendingDye); });
+  }
+  function openDyeForSlot(slot) {
+    var dyes = ownedDyes();
+    if (!dyes.length) { toast("You have no dyes yet — they drop from enemies."); return; }
+    $("dye-title").textContent = "Dye " + slot + " with…";
+    var html = "";
+    dyes.forEach(function (id) { html += '<div class="dye-opt" data-dye="' + id + '"><span class="sw" style="background:' + colChip(id) + '"></span>' + esc(DEFS.items[id].name) + ' ×' + STATE.inventory[id] + '</div>'; });
+    openModal(html, function (el) { applyDye(slot, el.getAttribute("data-dye")); });
+  }
+  function colChip(dyeId){ var c = DEFS.items[dyeId].color; return c === "prismatic" ? "linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f)" : c; }
+  function applyDye(slot, dyeId) {
+    closeModal();
+    api("/api/game/dye","POST",{slot:slot,dye:dyeId}).then(function(r){ if(r.ok){ refresh(r.j.state); toast("Dyed your " + slot + "! ✨"); } else toast(r.j.error); });
+  }
+  function openModal(html, onPick) {
+    var list = $("dye-list"); list.innerHTML = html;
+    list.querySelectorAll(".dye-opt").forEach(function(el){ el.addEventListener("click", function(){ onPick(el); }); });
+    $("dye-modal").classList.add("show");
+  }
+  function closeModal(){ $("dye-modal").classList.remove("show"); }
+  $("dye-close").addEventListener("click", closeModal);
+  $("dye-modal").addEventListener("click", function(e){ if(e.target === this) closeModal(); });
+
+  // ---------- world/boss timer ----------
+  function pollWorld() {
+    api("/api/game/world").then(function (r) {
+      var bs = r.j.boss, banner = $("boss-banner");
+      if (bs.active) {
+        banner.classList.add("active");
+        $("boss-txt").innerHTML = "<b>The Molten Warden</b> has spawned!";
+        $("boss-cd").textContent = Math.ceil(bs.msLeft/1000) + "s left";
+        if (world && !world.boss) {
+          world.boss = { isBoss: true, def: DEFS.boss, x: BOSS_SPOT.x, y: BOSS_SPOT.y, r: 30, hp: DEFS.boss.hp, maxHp: DEFS.boss.hp, alive: true, dmgFlash: 0, type: "boss" };
+        } else if (world && world.boss) { world.boss.alive = true; }
+      } else {
+        banner.classList.remove("active");
+        $("boss-txt").innerHTML = "The Molten Warden returns in";
+        $("boss-cd").textContent = Math.ceil(bs.nextSpawnMs/1000) + "s";
+        if (world) world.boss = null;
+      }
+    }).catch(function(){});
+  }
+
+  // ---------- feed ----------
+  function pollFeed(initial) {
+    api("/api/game/feed?since=" + lastFeedTs).then(function (r) {
+      var ev = r.j.events || [];
+      if (ev.length) {
+        lastFeedTs = ev[ev.length - 1].ts;
+        $("ticker-items").innerHTML = ev.slice(-6).reverse().map(function (e) { return '<b>' + esc(e.name) + '</b> got ' + esc(e.itemName); }).join("  ·  ");
+        if (!initial) {
+          var newest = ev[ev.length - 1];
+          if (STATE && newest.name !== STATE.name) toast('<span class="g">⭐</span> ' + esc(newest.name) + ' found <b>' + esc(newest.itemName) + '</b>!', 2600);
+        }
+      } else if (initial) { $("ticker-items").textContent = "No legendary drops yet — be the first."; }
+    }).catch(function(){});
+  }
+
+  // ---------- boot ----------
+  try { token = localStorage.getItem(SESS_KEY) || ""; } catch (e) {}
+  if (token) boot(); else showLogin();
+})();
+</script>
+</body>
+</html>
