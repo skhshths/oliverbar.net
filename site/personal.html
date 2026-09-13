@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>personal</title>
+<style>
+  :root {
+    --bg: #141413; --panel: #1b1b19; --panel-2: #232320; --border: #30302e;
+    --text: #faf9f5; --muted: #b0aea5; --dim: #6f6d66;
+    --accent: #c7965a; --accent-dim: #8a6a3f;
+    --up: #6cc067; --down: #c75a5a; --warn: #c7a95a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  button { font-family: inherit; cursor: pointer; }
+  input, textarea { font-family: inherit; }
+
+  /* ---- login gate ---- */
+  #gate { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); z-index: 50; }
+  .gatebox { width: 300px; text-align: center; }
+  .gatebox h1 { font-size: 18px; margin: 0 0 4px; letter-spacing: .5px; }
+  .gatebox p { color: var(--dim); font-size: 12.5px; margin: 0 0 20px; }
+  .gatebox input { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 14px; margin-bottom: 10px; }
+  .gatebox button { width: 100%; padding: 11px; border-radius: 10px; border: none;
+    background: var(--accent); color: #1a1508; font-weight: 600; font-size: 14px; }
+  .gatebox .err { color: var(--down); font-size: 12.5px; min-height: 16px; margin-top: 8px; }
+  .gatebox label { display: flex; align-items: center; gap: 6px; justify-content: center;
+    color: var(--dim); font-size: 12px; margin-top: 4px; cursor: pointer; }
+
+  /* ---- shell ---- */
+  #app { display: none; max-width: 900px; margin: 0 auto; padding: 22px 18px 60px; }
+  .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .topbar h1 { font-size: 17px; margin: 0; flex: 1; letter-spacing: .5px; }
+  .topbar .signout { background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 12px; border-radius: 8px; font-size: 12.5px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tabs button { background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+    padding: 8px 16px; border-radius: 9px; font-size: 13px; }
+  .tabs button.active { background: var(--accent); border-color: var(--accent); color: #1a1508; font-weight: 600; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .btn { background: var(--accent); border: none; color: #1a1508; font-weight: 600;
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+  .btn.ghost { background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-weight: 400; }
+  .btn.danger { background: none; border: 1px solid var(--down); color: var(--down); font-weight: 400; }
+  .empty { color: var(--dim); font-size: 13px; text-align: center; padding: 40px 0; }
+
+  /* ---- notes ---- */
+  .notes-wrap { display: grid; grid-template-columns: 240px 1fr; gap: 16px; min-height: 420px; }
+  .notes-list { display: flex; flex-direction: column; gap: 6px; }
+  .notes-list .new { margin-bottom: 4px; }
+  .note-item { text-align: left; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 9px; padding: 10px 12px; color: var(--text); }
+  .note-item.active { border-color: var(--accent); }
+  .note-item .t { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note-item .d { font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .note-editor { display: flex; flex-direction: column; gap: 10px; }
+  .note-editor input { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 9px; padding: 11px 12px; font-size: 15px; font-weight: 600; }
+  .note-editor textarea { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 9px; padding: 12px; font-size: 14px; line-height: 1.55; resize: vertical;
+    min-height: 340px; flex: 1; }
+  .note-editor .row { display: flex; align-items: center; gap: 10px; }
+  .note-editor .saved { color: var(--dim); font-size: 12px; flex: 1; }
+
+  /* ---- clipboard ---- */
+  .clip-input { display: flex; gap: 8px; margin-bottom: 16px; }
+  .clip-input textarea { flex: 1; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); border-radius: 9px; padding: 11px; font-size: 14px; min-height: 60px; resize: vertical; }
+  .clip { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 10px; }
+  .clip pre { margin: 0 0 8px; white-space: pre-wrap; word-break: break-word; font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); max-height: 180px; overflow: auto; }
+  .clip .meta { display: flex; align-items: center; gap: 10px; }
+  .clip .meta .when { color: var(--dim); font-size: 11.5px; flex: 1; }
+  .clip .meta button { background: none; border: 1px solid var(--border); color: var(--muted);
+    font-size: 11.5px; padding: 4px 10px; border-radius: 7px; }
+
+  /* ---- files ---- */
+  .drop { border: 1.5px dashed var(--border); border-radius: 12px; padding: 26px; text-align: center;
+    color: var(--dim); font-size: 13px; margin-bottom: 18px; transition: .15s; }
+  .drop.over { border-color: var(--accent); color: var(--accent); background: rgba(199,150,90,.06); }
+  .drop .btn { margin-top: 10px; }
+  .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .file-card { background: var(--panel); border: 1px solid var(--border); border-radius: 11px;
+    overflow: hidden; display: flex; flex-direction: column; }
+  .file-card .thumb { height: 110px; background: var(--panel-2); display: flex; align-items: center;
+    justify-content: center; overflow: hidden; }
+  .file-card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .file-card .thumb .ext { font-size: 12px; color: var(--dim); font-family: ui-monospace, monospace; }
+  .file-card .info { padding: 9px 10px; }
+  .file-card .info .n { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-card .info .s { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .file-card .acts { display: flex; border-top: 1px solid var(--border); }
+  .file-card .acts button { flex: 1; background: none; border: none; color: var(--muted);
+    padding: 8px; font-size: 12px; }
+  .file-card .acts button:first-child { border-right: 1px solid var(--border); }
+  .file-card .acts button.del { color: var(--down); }
+
+  /* ---- pi stats ---- */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; }
+  .stat .lbl { color: var(--dim); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
+  .stat .val { font-size: 22px; font-weight: 600; margin-top: 6px; }
+  .stat .val small { font-size: 13px; color: var(--muted); font-weight: 400; }
+  .stat.wide { grid-column: 1 / -1; }
+  .bar { height: 8px; background: var(--panel-2); border-radius: 5px; overflow: hidden; margin-top: 10px; }
+  .bar > div { height: 100%; background: var(--accent); }
+  .bar > div.hot { background: var(--down); }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 7px; font-size: 12px; font-weight: 600; }
+  .badge.ok { background: rgba(108,192,103,.15); color: var(--up); }
+  .badge.bad { background: rgba(199,90,90,.15); color: var(--down); }
+  .stat .sub { font-size: 11.5px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+  .stats-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .stats-head .when { color: var(--dim); font-size: 12px; flex: 1; }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 60; opacity: 0;
+    transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 620px) { .notes-wrap { grid-template-columns: 1fr; } .note-editor textarea { min-height: 240px; } }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gatebox">
+    <h1>personal</h1>
+    <p>private area · admin key required</p>
+    <input type="password" id="gate-key" placeholder="admin key" autocomplete="off">
+    <button id="gate-go">Unlock</button>
+    <label><input type="checkbox" id="gate-remember"> remember on this device</label>
+    <div class="err" id="gate-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <h1>personal</h1>
+    <button class="signout" id="signout">Lock</button>
+  </div>
+  <div class="tabs">
+    <button data-tab="notes" class="active">Notes</button>
+    <button data-tab="clipboard">Clipboard</button>
+    <button data-tab="files">Files</button>
+    <button data-tab="stats">Pi Stats</button>
+  </div>
+
+  <!-- NOTES -->
+  <div class="panel active" id="panel-notes">
+    <div class="notes-wrap">
+      <div class="notes-list" id="notes-list">
+        <button class="btn new" id="note-new">+ New note</button>
+        <div id="notes-items"></div>
+      </div>
+      <div class="note-editor" id="note-editor" style="display:none">
+        <input id="note-title" placeholder="Title" maxlength="200">
+        <textarea id="note-body" placeholder="Write anything…"></textarea>
+        <div class="row">
+          <span class="saved" id="note-saved"></span>
+          <button class="btn danger" id="note-delete">Delete</button>
+        </div>
+      </div>
+      <div class="empty" id="note-none" style="display:none">Pick a note, or make a new one.</div>
+    </div>
+  </div>
+
+  <!-- CLIPBOARD -->
+  <div class="panel" id="panel-clipboard">
+    <div class="clip-input">
+      <textarea id="clip-text" placeholder="Paste text here to send it to your other devices…"></textarea>
+      <button class="btn" id="clip-push">Push</button>
+    </div>
+    <div style="text-align:right; margin-bottom:10px">
+      <button class="btn ghost" id="clip-refresh">Refresh</button>
+      <button class="btn danger" id="clip-clear">Clear all</button>
+    </div>
+    <div id="clips"></div>
+  </div>
+
+  <!-- FILES -->
+  <div class="panel" id="panel-files">
+    <div class="drop" id="drop">
+      Drag files here, or
+      <input type="file" id="file-input" hidden>
+      <button class="btn" id="file-pick">choose a file</button>
+      <div style="margin-top:8px; font-size:11.5px">up to 100 MB · stored privately on your Pi</div>
+    </div>
+    <div class="files-grid" id="files-grid"></div>
+    <div class="empty" id="files-none" style="display:none">No files yet.</div>
+  </div>
+
+  <!-- PI STATS -->
+  <div class="panel" id="panel-stats">
+    <div class="stats-head">
+      <span class="when" id="stats-when">—</span>
+      <button class="btn ghost" id="stats-refresh">Refresh</button>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var API_BASE = "https://piapi.oliverbar.net";
+  var KEY_STORE = "personalAdminKey";
+  var adminKey = "";
+
+  // ---------- tiny helpers ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+  function api(pathname, opts) {
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    opts.headers["X-Edit-Key"] = adminKey;
+    return fetch(API_BASE + pathname, opts);
+  }
+  function apiJSON(pathname, method, body) {
+    return api(pathname, {
+      method: method || "GET",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+  function fmtBytes(n) {
+    if (n === null || n === undefined) return "—";
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+    return (n / 1073741824).toFixed(2) + " GB";
+  }
+  function fmtWhen(ts) {
+    var d = new Date(ts), now = Date.now(), diff = now - ts;
+    if (diff < 60000) return "just now";
+    if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+    if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  function fmtUptime(sec) {
+    if (sec === null || sec === undefined) return "—";
+    var d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+    if (d) return d + "d " + h + "h";
+    if (h) return h + "h " + m + "m";
+    return m + "m";
+  }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  // ---------- gate ----------
+  function showApp() { $("gate").style.display = "none"; $("app").style.display = "block"; loadNotes(); }
+  function unlock(key, remember) {
+    adminKey = key;
+    return api("/api/notes").then(function (r) {
+      if (r.status === 401) throw new Error("Wrong key");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      if (remember) { try { localStorage.setItem(KEY_STORE, key); } catch (e) {} }
+      showApp();
+    });
+  }
+  $("gate-go").addEventListener("click", function () {
+    var key = $("gate-key").value.trim();
+    if (!key) return;
+    $("gate-err").textContent = "";
+    unlock(key, $("gate-remember").checked).catch(function (e) {
+      $("gate-err").textContent = e.message === "Wrong key" ? "Wrong key." : "Can't reach the server.";
+      adminKey = "";
+    });
+  });
+  $("gate-key").addEventListener("keydown", function (e) { if (e.key === "Enter") $("gate-go").click(); });
+  $("signout").addEventListener("click", function () {
+    try { localStorage.removeItem(KEY_STORE); } catch (e) {}
+    adminKey = ""; location.reload();
+  });
+
+  // ---------- tabs ----------
+  var loaded = {};
+  document.querySelectorAll(".tabs button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".tabs button").forEach(function (x) { x.classList.remove("active"); });
+      document.querySelectorAll(".panel").forEach(function (x) { x.classList.remove("active"); });
+      b.classList.add("active");
+      var tab = b.getAttribute("data-tab");
+      $("panel-" + tab).classList.add("active");
+      if (tab === "clipboard" && !loaded.clipboard) { loadClips(); loaded.clipboard = true; }
+      if (tab === "files" && !loaded.files) { loadFiles(); loaded.files = true; }
+      if (tab === "stats") loadStats();
+    });
+  });
+
+  // ---------- notes ----------
+  var notes = [], activeNote = null, saveTimer = null;
+  function loadNotes() {
+    apiJSON("/api/notes").then(function (list) {
+      notes = list; renderNotesList();
+    }).catch(function () { toast("Couldn't load notes"); });
+  }
+  function renderNotesList() {
+    var box = $("notes-items");
+    if (!notes.length) { box.innerHTML = ""; }
+    else {
+      box.innerHTML = notes.map(function (n) {
+        return '<button class="note-item' + (activeNote && activeNote.id === n.id ? " active" : "") +
+          '" data-id="' + n.id + '"><div class="t">' + (esc(n.title) || "Untitled") +
+          '</div><div class="d">' + fmtWhen(n.updated) + '</div></button>';
+      }).join("");
+      box.querySelectorAll(".note-item").forEach(function (el) {
+        el.addEventListener("click", function () { openNote(el.getAttribute("data-id")); });
+      });
+    }
+    if (!activeNote) { $("note-editor").style.display = "none"; $("note-none").style.display = notes.length ? "block" : "none"; }
+  }
+  function openNote(id) {
+    activeNote = notes.filter(function (n) { return n.id === id; })[0] || null;
+    if (!activeNote) return;
+    $("note-none").style.display = "none";
+    $("note-editor").style.display = "flex";
+    $("note-title").value = activeNote.title || "";
+    $("note-body").value = activeNote.body || "";
+    $("note-saved").textContent = "Saved " + fmtWhen(activeNote.updated);
+    renderNotesList();
+  }
+  $("note-new").addEventListener("click", function () {
+    apiJSON("/api/notes", "POST", { title: "", body: "" }).then(function (n) {
+      notes.unshift(n); activeNote = n; renderNotesList(); openNote(n.id); $("note-title").focus();
+    });
+  });
+  function scheduleSave() {
+    if (!activeNote) return;
+    $("note-saved").textContent = "Saving…";
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNote, 700);
+  }
+  function saveNote() {
+    if (!activeNote) return;
+    var payload = { id: activeNote.id, title: $("note-title").value, body: $("note-body").value };
+    apiJSON("/api/notes", "POST", payload).then(function (n) {
+      activeNote.title = n.title; activeNote.body = n.body; activeNote.updated = n.updated;
+      // move to top
+      notes = notes.filter(function (x) { return x.id !== n.id; }); notes.unshift(activeNote);
+      $("note-saved").textContent = "Saved " + fmtWhen(n.updated);
+      renderNotesList();
+    }).catch(function () { $("note-saved").textContent = "Save failed"; });
+  }
+  $("note-title").addEventListener("input", scheduleSave);
+  $("note-body").addEventListener("input", scheduleSave);
+  $("note-delete").addEventListener("click", function () {
+    if (!activeNote) return;
+    if (!confirm("Delete this note?")) return;
+    var id = activeNote.id;
+    apiJSON("/api/notes/delete", "POST", { id: id }).then(function () {
+      notes = notes.filter(function (n) { return n.id !== id; });
+      activeNote = null; renderNotesList(); toast("Deleted");
+    });
+  });
+
+  // ---------- clipboard ----------
+  function loadClips() {
+    apiJSON("/api/clipboard").then(function (list) {
+      var box = $("clips");
+      if (!list.length) { box.innerHTML = '<div class="empty">Nothing here yet.</div>'; return; }
+      box.innerHTML = list.map(function (c) {
+        return '<div class="clip"><pre>' + esc(c.text) + '</pre><div class="meta"><span class="when">' +
+          fmtWhen(c.created) + '</span><button data-copy="' + c.id + '">Copy</button>' +
+          '<button data-del="' + c.id + '">Delete</button></div></div>';
+      }).join("");
+      box.querySelectorAll("[data-copy]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var c = list.filter(function (x) { return x.id === b.getAttribute("data-copy"); })[0];
+          if (c) navigator.clipboard.writeText(c.text).then(function () { toast("Copied"); },
+            function () { toast("Copy blocked — select manually"); });
+        });
+      });
+      box.querySelectorAll("[data-del]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          apiJSON("/api/clipboard/delete", "POST", { id: b.getAttribute("data-del") }).then(loadClips);
+        });
+      });
+    });
+  }
+  $("clip-push").addEventListener("click", function () {
+    var text = $("clip-text").value;
+    if (!text.trim()) return;
+    apiJSON("/api/clipboard", "POST", { text: text }).then(function () {
+      $("clip-text").value = ""; loadClips(); toast("Pushed");
+    });
+  });
+  $("clip-refresh").addEventListener("click", loadClips);
+  $("clip-clear").addEventListener("click", function () {
+    if (!confirm("Clear the whole clipboard history?")) return;
+    apiJSON("/api/clipboard/delete", "POST", { id: "*" }).then(loadClips);
+  });
+
+  // ---------- files ----------
+  function loadFiles() {
+    apiJSON("/api/myfiles").then(function (list) {
+      var grid = $("files-grid");
+      $("files-none").style.display = list.length ? "none" : "block";
+      grid.innerHTML = "";
+      list.forEach(function (f) {
+        var card = document.createElement("div");
+        card.className = "file-card";
+        var isImg = /^image\//.test(f.type);
+        var ext = (f.name.split(".").pop() || "file").toUpperCase().slice(0, 5);
+        card.innerHTML = '<div class="thumb">' + (isImg ? '<img alt="">' : '<span class="ext">' + ext + '</span>') +
+          '</div><div class="info"><div class="n">' + esc(f.name) + '</div><div class="s">' +
+          fmtBytes(f.size) + '</div></div><div class="acts">' +
+          '<button class="dl">Open</button><button class="del">Delete</button></div>';
+        grid.appendChild(card);
+        // Image thumbnails need the admin key, so fetch as a blob.
+        if (isImg) {
+          api("/api/myfiles/" + f.id).then(function (r) { return r.blob(); }).then(function (blob) {
+            card.querySelector("img").src = URL.createObjectURL(blob);
+          }).catch(function () {});
+        }
+        card.querySelector(".dl").addEventListener("click", function () { openFile(f); });
+        card.querySelector(".del").addEventListener("click", function () {
+          if (!confirm("Delete " + f.name + "?")) return;
+          apiJSON("/api/myfiles/delete", "POST", { id: f.id }).then(loadFiles);
+        });
+      });
+    });
+  }
+  function openFile(f) {
+    // Fetch with the key, then open/download the blob locally.
+    toast("Fetching…");
+    api("/api/myfiles/" + f.id).then(function (r) { return r.blob(); }).then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      if (/^(image|video|audio)\//.test(f.type) || f.type === "application/pdf") a.target = "_blank";
+      else a.download = f.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+    }).catch(function () { toast("Failed to open"); });
+  }
+  function uploadMyFile(file) {
+    if (!file) return;
+    var fd = new FormData(); fd.append("file", file);
+    toast("Uploading " + file.name + "…");
+    api("/api/myfiles/upload", { method: "POST", body: fd }).then(function (r) {
+      return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Upload failed"); return j; });
+    }).then(function () { toast("Uploaded"); loadFiles(); }).catch(function (e) { toast(e.message); });
+  }
+  $("file-pick").addEventListener("click", function () { $("file-input").click(); });
+  $("file-input").addEventListener("change", function () {
+    if (this.files[0]) uploadMyFile(this.files[0]); this.value = "";
+  });
+  var drop = $("drop");
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files[0]; if (f) uploadMyFile(f);
+  });
+
+  // ---------- pi stats ----------
+  function statCard(lbl, val, sub) {
+    return '<div class="stat"><div class="lbl">' + lbl + '</div><div class="val">' + val + '</div>' +
+      (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>';
+  }
+  function barCard(lbl, used, total, hotAt) {
+    var pct = (used !== null && total) ? Math.min(100, Math.round(used / total * 100)) : 0;
+    var hot = hotAt && pct >= hotAt ? " hot" : "";
+    return '<div class="stat"><div class="lbl">' + lbl + '</div><div class="val">' + pct +
+      '<small>%</small></div><div class="bar"><div class="' + hot.trim() + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="sub">' + fmtBytes(used) + ' of ' + fmtBytes(total) + '</div></div>';
+  }
+  function loadStats() {
+    $("stats-when").textContent = "Loading…";
+    apiJSON("/api/admin/system").then(function (s) {
+      var html = "";
+      // Power / throttle — the headline card
+      if (s.throttled) {
+        var t = s.throttled;
+        var bad = !t.ok;
+        var msg = t.ok ? "Power healthy" :
+          [t.undervoltageNow ? "undervoltage NOW" : "", t.throttledNow ? "throttled now" : "",
+           (!t.undervoltageNow && t.undervoltageEver) ? "undervoltage earlier" : "",
+           (!t.throttledNow && t.throttledEver) ? "throttled earlier" : ""].filter(Boolean).join(" · ");
+        html += '<div class="stat wide"><div class="lbl">Power</div><div style="margin-top:8px">' +
+          '<span class="badge ' + (bad ? "bad" : "ok") + '">' + (t.ok ? "✓ OK" : "⚠ " + msg) + '</span></div>' +
+          '<div class="sub">flags ' + t.raw + (bad ? ' — check the charger/cable' : '') + '</div></div>';
+      }
+      if (s.tempC !== null && s.tempC !== undefined) {
+        var hot = s.tempC >= 70;
+        html += statCard("CPU temp", '<span style="color:' + (hot ? "var(--down)" : "inherit") + '">' +
+          s.tempC.toFixed(1) + '<small>°C</small></span>', hot ? "running warm" : "");
+      }
+      html += statCard("Uptime", fmtUptime(s.uptimeSec));
+      if (s.load) html += statCard("Load", s.load["1m"].toFixed(2),
+        s.load["5m"].toFixed(2) + " (5m) · " + s.load["15m"].toFixed(2) + " (15m)");
+      if (s.mem && s.mem.total) html += barCard("Memory", s.mem.used, s.mem.total, 85);
+      if (s.disk && s.disk.total) html += barCard("Disk", s.disk.used, s.disk.total, 90);
+      if (s.storage) {
+        html += statCard("Chat database", fmtBytes(s.storage.db));
+        html += statCard("Shared uploads", fmtBytes(s.storage.uploads));
+        html += statCard("Personal files", fmtBytes(s.storage.myfiles));
+      }
+      $("stat-grid").innerHTML = html || '<div class="empty">No data.</div>';
+      $("stats-when").textContent = "Updated " + new Date(s.ts).toLocaleTimeString();
+    }).catch(function () {
+      $("stat-grid").innerHTML = '<div class="empty">Couldn\'t reach the Pi.</div>';
+      $("stats-when").textContent = "—";
+    });
+  }
+  $("stats-refresh").addEventListener("click", loadStats);
+
+  // ---------- boot: try a remembered key ----------
+  var saved = "";
+  try { saved = localStorage.getItem(KEY_STORE) || ""; } catch (e) {}
+  if (saved) {
+    unlock(saved, false).catch(function () { adminKey = ""; $("gate-key").focus(); });
+  } else {
+    $("gate-key").focus();
+  }
+})();
+</script>
+</body>
+</html>

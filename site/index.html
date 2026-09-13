@@ -3,6 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // personal.oliverbar.net is the same Pages project as the main site, so it
+    // would otherwise show the black entry screen. Send it straight to the
+    // private personal app instead. Runs before anything renders.
+    (function () {
+      if (location.hostname === "personal.oliverbar.net" &&
+          !/personal\.html$/.test(location.pathname)) {
+        location.replace("/personal.html");
+      }
+    })();
+  </script>
   <title>Hello World</title>
 
   <link
