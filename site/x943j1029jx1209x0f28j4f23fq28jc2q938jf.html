@@ -1007,7 +1007,7 @@
       try {
         const remembered = readJSON(REMEMBER_KEY, null);
         if (remembered && remembered.name) nameInput.value = remembered.name;
-        if (remembered && remembered.pin) pinInput.value = remembered.pin;
+        // PIN is intentionally not remembered — you re-enter it each visit.
       } catch (e) {}
 
       function attemptLogin() {
@@ -1031,8 +1031,8 @@
             return data;
           });
         }).then(function (data) {
-          writeJSON(REMEMBER_KEY, { name: val, pin: pinVal });
-          writeJSON(SESSION_KEY, { token: data.token, name: data.name });
+          writeJSON(REMEMBER_KEY, { name: val });
+          // Session is deliberately not persisted, so a reload signs you out.
           enterChat(data.token, data.name);
         }).catch(function (err) {
           showNameError(err.message || 'Could not log in.');
@@ -1049,19 +1049,11 @@
       });
 
       function tryAutoLogin() {
-        const saved = readJSON(SESSION_KEY, null);
-        if (!saved || !saved.token || !saved.name) { setTimeout(function () { nameInput.focus(); }, 30); return; }
-        fetch(API_BASE + '/api/chat/session', {
-          headers: { 'X-Chat-Session': saved.token }
-        }).then(function (r) {
-          if (!r.ok) throw new Error('expired');
-          return r.json();
-        }).then(function (data) {
-          enterChat(saved.token, data.name);
-        }).catch(function () {
-          try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
-          setTimeout(function () { nameInput.focus(); }, 30);
-        });
+        // Auto-login is intentionally disabled: every visit must sign in
+        // again. Clear any session persisted by an older version so it
+        // can't silently resume, then just show the login prompt.
+        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+        setTimeout(function () { nameInput.focus(); }, 30);
       }
 
       logoutBtn.addEventListener('click', function () {
@@ -1210,7 +1202,7 @@
         api('/api/chat/change-pin', { method: 'POST', body: { newPin: a } }).then(function () {
           settingsNewPin.value = '';
           settingsConfirmPin.value = '';
-          writeJSON(REMEMBER_KEY, { name: myName, pin: a });
+          writeJSON(REMEMBER_KEY, { name: myName });
           showSettingsOk('PIN updated.');
         }).catch(function (err) { showSettingsError(err.message); });
       });
