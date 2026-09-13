@@ -436,6 +436,7 @@
   }
   .msg-file-chip:hover { border-color: var(--accent); }
   .msg-file-chip .fsize { color: var(--muted); font-size: 11px; }
+  #chat-main.drag-over { outline: 2px dashed var(--accent); outline-offset: -8px; }
   .pinned-item { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
   .pinned-item .pinned-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pinned-item button { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; flex-shrink: 0; }
@@ -2035,15 +2036,13 @@
         attachPreview.classList.add('hidden');
         fileInput.value = '';
       }
-      attachBtn.addEventListener('click', function () { fileInput.click(); });
-      attachPreview.addEventListener('click', clearPendingAttachment); // click the chip to remove it
-      fileInput.addEventListener('change', function () {
-        const file = fileInput.files && fileInput.files[0];
-        if (!file) return;
-        if (file.size > 15 * 1024 * 1024) { composeStatus.textContent = 'File too large (max 15 MB).'; fileInput.value = ''; return; }
-        composeStatus.textContent = 'Uploading ' + file.name + '…';
+      // Shared by the attach button, paste, and drag-and-drop.
+      function uploadFile(file) {
+        if (!file || !sessionToken) return;
+        if (file.size > 15 * 1024 * 1024) { composeStatus.textContent = 'File too large (max 15 MB).'; return; }
+        composeStatus.textContent = 'Uploading ' + (file.name || 'file') + '…';
         const fd = new FormData();
-        fd.append('file', file);
+        fd.append('file', file, file.name || 'pasted-file');
         // Raw fetch, not api(): FormData must set its own multipart Content-Type.
         fetch(API_BASE + '/api/upload', { method: 'POST', headers: { 'X-Chat-Session': sessionToken }, body: fd })
           .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Upload failed'); return d; }); })
@@ -2055,7 +2054,49 @@
             chatInput.focus();
           })
           .catch(function (e) { composeStatus.textContent = e.message || 'Upload failed'; clearPendingAttachment(); });
+      }
+
+      attachBtn.addEventListener('click', function () { fileInput.click(); });
+      attachPreview.addEventListener('click', clearPendingAttachment); // click the chip to remove it
+      fileInput.addEventListener('change', function () {
+        uploadFile(fileInput.files && fileInput.files[0]);
+        fileInput.value = '';
       });
+
+      // Paste an image/file straight into the chat (e.g. a screenshot).
+      document.addEventListener('paste', function (e) {
+        if (!sessionToken) return;
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].kind === 'file') {
+            const f = items[i].getAsFile();
+            if (f) { e.preventDefault(); uploadFile(f); return; }
+          }
+        }
+      });
+
+      // Drag a file onto the chat area to upload it.
+      const chatMainEl = document.getElementById('chat-main');
+      if (chatMainEl) {
+        ['dragenter', 'dragover'].forEach(function (ev) {
+          chatMainEl.addEventListener(ev, function (e) {
+            if (!sessionToken || !e.dataTransfer) return;
+            if (Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') === -1) return;
+            e.preventDefault();
+            chatMainEl.classList.add('drag-over');
+          });
+        });
+        chatMainEl.addEventListener('dragleave', function (e) {
+          if (e.target === chatMainEl) chatMainEl.classList.remove('drag-over');
+        });
+        chatMainEl.addEventListener('drop', function (e) {
+          chatMainEl.classList.remove('drag-over');
+          if (!sessionToken) return;
+          const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+          if (f) { e.preventDefault(); uploadFile(f); }
+        });
+      }
 
       function sendMessage() {
         const raw = chatInput.value.trim();
