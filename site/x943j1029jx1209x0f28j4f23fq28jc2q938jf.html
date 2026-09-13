@@ -1004,11 +1004,8 @@
       }
 
       // ---------- Login ----------
-      try {
-        const remembered = readJSON(REMEMBER_KEY, null);
-        if (remembered && remembered.name) nameInput.value = remembered.name;
-        // PIN is intentionally not remembered — you re-enter it each visit.
-      } catch (e) {}
+      // Nothing is remembered between visits — always a blank sign-in.
+      try { localStorage.removeItem(REMEMBER_KEY); } catch (e) {}
 
       function attemptLogin() {
         const val = nameInput.value.trim().slice(0, 24);
@@ -1031,8 +1028,8 @@
             return data;
           });
         }).then(function (data) {
-          writeJSON(REMEMBER_KEY, { name: val });
-          // Session is deliberately not persisted, so a reload signs you out.
+          // Nothing persisted: no name, no PIN, no session — a reload
+          // returns to a blank sign-in.
           enterChat(data.token, data.name);
         }).catch(function (err) {
           showNameError(err.message || 'Could not log in.');
@@ -1202,7 +1199,6 @@
         api('/api/chat/change-pin', { method: 'POST', body: { newPin: a } }).then(function () {
           settingsNewPin.value = '';
           settingsConfirmPin.value = '';
-          writeJSON(REMEMBER_KEY, { name: myName });
           showSettingsOk('PIN updated.');
         }).catch(function (err) { showSettingsError(err.message); });
       });
