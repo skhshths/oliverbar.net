@@ -123,7 +123,7 @@
   .settings-row input { flex: 1; min-width: 0; }
   .settings-row button.small {
     flex-shrink: 0;
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
     color: var(--text-light);
     border: 1px solid var(--border-col);
     border-radius: 7px;
@@ -155,7 +155,7 @@
   #settings-danger-btn:hover { background-color: var(--danger); color: var(--text-light); }
   #notif-toggle-btn {
     width: 100%;
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
     color: var(--text-light);
     border: 1px solid var(--border-col);
     border-radius: 8px;
@@ -205,7 +205,7 @@
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
     border: 1px solid var(--border-col);
     display: flex;
     align-items: center;
@@ -236,8 +236,8 @@
     color: var(--text-light);
     border-left: 2px solid transparent;
   }
-  .nav-item:hover { background-color: var(--panel-bg-2); }
-  .nav-item.active { background-color: var(--panel-bg-2); border-left-color: var(--accent); }
+  .nav-item:hover { background-color: var(--panel-bg); }
+  .nav-item.active { background-color: var(--panel-bg); border-left-color: var(--accent); }
 
   #dm-section-label {
     padding: 14px 16px 4px;
@@ -265,7 +265,7 @@
   }
   #new-dm-input:focus { border-color: var(--accent); }
   #new-dm-btn {
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
     color: var(--text-light);
     border: 1px solid var(--border-col);
     border-radius: 6px;
@@ -289,8 +289,8 @@
     cursor: pointer;
     border-left: 2px solid transparent;
   }
-  .thread-item:hover { background-color: var(--panel-bg-2); }
-  .thread-item.active { background-color: var(--panel-bg-2); border-left-color: var(--accent); }
+  .thread-item:hover { background-color: var(--panel-bg); }
+  .thread-item.active { background-color: var(--panel-bg); border-left-color: var(--accent); }
   .thread-item .thread-info { flex: 1; min-width: 0; }
   .thread-item .thread-name { font-size: 13px; font-weight: 600; }
   .thread-item .thread-preview {
@@ -399,7 +399,7 @@
     border-bottom: 1px solid var(--border-col);
     font-size: 11.5px;
     color: var(--muted);
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
   }
   #pinned-strip.hidden { display: none; }
 
@@ -414,6 +414,28 @@
     word-break: break-word;
   }
   #broadcast-banner.hidden { display: none; }
+
+  #attach-btn {
+    flex: 0 0 auto; background: transparent; border: 1px solid var(--border-col);
+    border-radius: 8px; font-size: 16px; cursor: pointer; padding: 0 10px; line-height: 1;
+  }
+  #attach-btn:hover { border-color: var(--accent); }
+  #attach-preview {
+    font-size: 12px; color: var(--muted); padding: 6px 10px; margin-bottom: 6px;
+    background: var(--panel-bg); border: 1px solid var(--border-col); border-radius: 8px;
+    cursor: pointer;
+  }
+  #attach-preview.hidden { display: none; }
+  #attach-preview::after { content: '  ✕'; color: var(--danger); }
+  .msg-attachment { margin-top: 6px; }
+  .msg-attachment img, .msg-attachment video { max-width: 100%; max-height: 320px; border-radius: 10px; display: block; }
+  .msg-file-chip {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+    padding: 8px 12px; border: 1px solid var(--border-col); border-radius: 10px;
+    background: var(--panel-bg); color: var(--text-light); text-decoration: none; font-size: 13px;
+  }
+  .msg-file-chip:hover { border-color: var(--accent); }
+  .msg-file-chip .fsize { color: var(--muted); font-size: 11px; }
   .pinned-item { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
   .pinned-item .pinned-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pinned-item button { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; flex-shrink: 0; }
@@ -437,7 +459,7 @@
   .msg {
     padding: 8px 12px;
     border-radius: 12px;
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
     font-size: 13.5px;
     line-height: 1.4;
     word-wrap: break-word;
@@ -489,7 +511,7 @@
     position: absolute;
     bottom: 100%;
     margin-bottom: 4px;
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
     border: 1px solid var(--border-col);
     border-radius: 10px;
     padding: 6px;
@@ -534,7 +556,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: var(--panel-bg-2);
+    background-color: var(--panel-bg);
     border-radius: 8px;
     padding: 6px 10px;
     font-size: 11.5px;
@@ -629,7 +651,7 @@
 
         <div class="settings-section">
           <h3>Export</h3>
-          <button id="export-history-btn" class="small" style="width:100%;background-color:var(--panel-bg-2);color:var(--text-light);border:1px solid var(--border-col);border-radius:8px;padding:9px;font-size:13px;cursor:pointer;">Download my chat history</button>
+          <button id="export-history-btn" class="small" style="width:100%;background-color:var(--panel-bg);color:var(--text-light);border:1px solid var(--border-col);border-radius:8px;padding:9px;font-size:13px;cursor:pointer;">Download my chat history</button>
         </div>
 
         <div class="settings-section">
@@ -696,7 +718,10 @@
             <span id="reply-preview-text"></span>
             <button id="reply-cancel-btn" type="button">✕</button>
           </div>
+          <div id="attach-preview" class="hidden"></div>
           <div id="compose-row">
+            <button id="attach-btn" type="button" title="Attach a file">📎</button>
+            <input type="file" id="file-input" style="display:none">
             <input type="text" id="chat-input" maxlength="500" placeholder="Type a message..." autocomplete="off">
             <button id="send-btn">Send</button>
           </div>
@@ -756,6 +781,10 @@
       const settingsDangerBtn = document.getElementById('settings-danger-btn');
       const notifToggleBtn = document.getElementById('notif-toggle-btn');
       const exportHistoryBtn = document.getElementById('export-history-btn');
+      const attachBtn = document.getElementById('attach-btn');
+      const fileInput = document.getElementById('file-input');
+      const attachPreview = document.getElementById('attach-preview');
+      let pendingAttachment = null;
       const blockNameInput = document.getElementById('block-name-input');
       const blockNameBtn = document.getElementById('block-name-btn');
       const blockedList = document.getElementById('blocked-list');
@@ -954,6 +983,45 @@
       }
 
       // ---------- Rich text rendering (safe — no innerHTML on user text) ----------
+      // Renders a message attachment: images/video/audio inline, anything
+      // else as a download chip. The file lives on the Pi, served by an
+      // unguessable capability URL.
+      function renderAttachment(att) {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg-attachment';
+        const url = API_BASE + '/api/file/' + att.fileId;
+        const type = att.type || '';
+        if (type.indexOf('image/') === 0) {
+          const a = document.createElement('a');
+          a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          const img = document.createElement('img');
+          img.src = url; img.alt = att.name || 'image'; img.loading = 'lazy';
+          a.appendChild(img); wrap.appendChild(a);
+        } else if (type.indexOf('video/') === 0) {
+          const v = document.createElement('video');
+          v.src = url; v.controls = true; wrap.appendChild(v);
+        } else if (type.indexOf('audio/') === 0) {
+          const au = document.createElement('audio');
+          au.src = url; au.controls = true; wrap.appendChild(au);
+        } else {
+          const a = document.createElement('a');
+          a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          a.className = 'msg-file-chip';
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = '📎 ' + (att.name || 'file');
+          a.appendChild(nameSpan);
+          if (att.size) {
+            const sz = document.createElement('span');
+            sz.className = 'fsize';
+            const kb = att.size / 1024;
+            sz.textContent = kb < 1024 ? Math.round(kb) + ' KB' : (kb / 1024).toFixed(1) + ' MB';
+            a.appendChild(sz);
+          }
+          wrap.appendChild(a);
+        }
+        return wrap;
+      }
+
       function renderRichText(container, text) {
         container.innerHTML = '';
         if (text == null) return;
@@ -1633,6 +1701,10 @@
           }
           bubble.appendChild(textEl);
 
+          if (!m.deleted && m.attachment) {
+            bubble.appendChild(renderAttachment(m.attachment));
+          }
+
           if (!m.deleted && m.reactions && Object.keys(m.reactions).length) {
             const reactionsRow = document.createElement('div');
             reactionsRow.className = 'reactions-row';
@@ -1956,11 +2028,43 @@
       }
 
       // ---------- Sending ----------
+      // ---------- Attachments ----------
+      function clearPendingAttachment() {
+        pendingAttachment = null;
+        attachPreview.textContent = '';
+        attachPreview.classList.add('hidden');
+        fileInput.value = '';
+      }
+      attachBtn.addEventListener('click', function () { fileInput.click(); });
+      attachPreview.addEventListener('click', clearPendingAttachment); // click the chip to remove it
+      fileInput.addEventListener('change', function () {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        if (file.size > 15 * 1024 * 1024) { composeStatus.textContent = 'File too large (max 15 MB).'; fileInput.value = ''; return; }
+        composeStatus.textContent = 'Uploading ' + file.name + '…';
+        const fd = new FormData();
+        fd.append('file', file);
+        // Raw fetch, not api(): FormData must set its own multipart Content-Type.
+        fetch(API_BASE + '/api/upload', { method: 'POST', headers: { 'X-Chat-Session': sessionToken }, body: fd })
+          .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Upload failed'); return d; }); })
+          .then(function (d) {
+            pendingAttachment = d;
+            attachPreview.textContent = '📎 ' + d.name + ' — ready to send';
+            attachPreview.classList.remove('hidden');
+            composeStatus.textContent = '';
+            chatInput.focus();
+          })
+          .catch(function (e) { composeStatus.textContent = e.message || 'Upload failed'; clearPendingAttachment(); });
+      });
+
       function sendMessage() {
         const raw = chatInput.value.trim();
-        if (!raw) return;
-        const text = applySlash(raw);
-        if (text === null) { chatInput.value = ''; saveDraft(); return; } // command handled locally, nothing to send
+        let text = raw;
+        if (raw) {
+          text = applySlash(raw);
+          if (text === null) { chatInput.value = ''; saveDraft(); return; } // slash command handled locally
+        }
+        if (!text && !pendingAttachment) return; // nothing to send
         composeStatus.textContent = '';
 
         const isDm = currentView === 'dm';
@@ -1968,10 +2072,12 @@
         const path = isDm ? '/api/dm/send' : '/api/chat';
         const body = isDm ? { convId: currentConvId, text: text } : { text: text };
         if (replyingTo) body.replyTo = replyingTo.id;
+        if (pendingAttachment) body.attachment = { fileId: pendingAttachment.fileId };
 
         api(path, { method: 'POST', body: body }).then(function () {
           chatInput.value = '';
           clearDraft(ctx);
+          clearPendingAttachment();
           replyingTo = null;
           replyPreview.classList.add('hidden');
           fetchActiveMessages();
