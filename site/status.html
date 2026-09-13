@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>oliverbar.net status</title>
+<style>
+  :root {
+    --bg: #141413; --panel: #1b1b19; --border: #30302e;
+    --text: #faf9f5; --muted: #b0aea5; --dim: #6f6d66;
+    --up: #6cc067; --down: #c75a5a; --wait: #c7a95a;
+  }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 48px 20px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 28px; }
+  .overall { font-size: 15px; font-weight: 600; margin-bottom: 20px; padding: 12px 16px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+  .overall .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--dim); }
+  .row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-bottom: 10px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+  .row .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; background: var(--dim); }
+  .row .dot.up { background: var(--up); } .row .dot.down { background: var(--down); } .row .dot.wait { background: var(--wait); }
+  .row .name { flex: 1 1 auto; font-size: 14px; }
+  .row .name small { display: block; color: var(--dim); font-size: 11.5px; margin-top: 2px; }
+  .row .state { font-size: 12.5px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .foot { color: var(--dim); font-size: 12px; margin-top: 22px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>oliverbar.net status</h1>
+  <p class="sub">Live health of the site and its services. Refreshes automatically.</p>
+  <div class="overall" id="overall"><span class="dot" id="overall-dot"></span><span id="overall-text">Checking…</span></div>
+  <div id="rows"></div>
+  <div class="foot" id="foot">—</div>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+    // Each service: a name, a URL to probe, and how we read the result.
+    // "cors" endpoints return JSON with CORS headers (we can read status);
+    // "opaque" ones we ping no-cors (up = it answered at all).
+    const SERVICES = [
+      { key: "site", name: "Website", sub: "oliverbar.net (Cloudflare Pages)", url: location.origin + "/status.html?ping=" , mode: "self" },
+      { key: "worker", name: "Config &amp; pages API", sub: "Cloudflare Worker", url: "https://api.oliverbar.net/api/config", mode: "cors" },
+      { key: "chat", name: "Chat &amp; DMs", sub: "Raspberry Pi backend", url: "https://piapi.oliverbar.net/health", mode: "cors" },
+      { key: "pi", name: "Pi terminal", sub: "pi.oliverbar.net (tunnel)", url: "https://pi.oliverbar.net/", mode: "opaque" },
+    ];
+    const rowsEl = document.getElementById("rows");
+    const rowEls = {};
+    SERVICES.forEach(function (s) {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = '<div class="dot wait"></div><div class="name">' + s.name + '<small>' + s.sub + '</small></div><div class="state">checking…</div>';
+      rowsEl.appendChild(row);
+      rowEls[s.key] = { dot: row.querySelector(".dot"), state: row.querySelector(".state") };
+    });
+
+    function setRow(key, up, detail) {
+      const r = rowEls[key];
+      r.dot.className = "dot " + (up ? "up" : "down");
+      r.state.textContent = detail;
+    }
+
+    function probe(s) {
+      const t0 = performance.now();
+      if (s.mode === "self") {
+        // The page itself loaded, so the site is up by definition.
+        setRow(s.key, true, "operational");
+        return Promise.resolve(true);
+      }
+      const opts = s.mode === "opaque" ? { mode: "no-cors", cache: "no-store" } : { cache: "no-store" };
+      return fetch(s.url, opts).then(function (r) {
+        const ms = Math.round(performance.now() - t0);
+        // opaque: any resolution means the edge answered. cors: 2xx/401 = alive.
+        const ok = s.mode === "opaque" ? true : (r.ok || r.status === 401);
+        setRow(s.key, ok, (ok ? "operational" : "error " + r.status) + " · " + ms + "ms");
+        return ok;
+      }).catch(function () {
+        setRow(s.key, false, "unreachable");
+        return false;
+      });
+    }
+
+    function runAll() {
+      Promise.all(SERVICES.map(probe)).then(function (results) {
+        const allUp = results.every(Boolean);
+        const anyDown = results.some(function (x) { return !x; });
+        const dot = document.getElementById("overall-dot");
+        const txt = document.getElementById("overall-text");
+        dot.style.background = allUp ? "var(--up)" : "var(--down)";
+        txt.textContent = allUp ? "All systems operational" : (anyDown ? "Some services are having problems" : "Checking…");
+        document.getElementById("foot").textContent = "Last checked " + new Date().toLocaleTimeString();
+      });
+    }
+    runAll();
+    setInterval(runAll, 20000);
+  })();
+</script>
+</body>
+</html>
