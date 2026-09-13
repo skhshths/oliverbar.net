@@ -713,7 +713,8 @@
 
       const ACCESS_KEY = "unlockedAccess";
       const HOME_PAGE = "/";
-      const API_BASE = "https://api.oliverbar.net"; // <-- your Worker URL
+      const API_BASE = "https://piapi.oliverbar.net"; // chat/DMs/presence/accounts — self-hosted on the Pi (SQLite, no write limits)
+      const WORKER_BASE = "https://api.oliverbar.net"; // config + broadcast banner — still the Cloudflare Worker
       const POLL_MS = 4000;
       const THREADS_POLL_MS = 10000;
       const PRESENCE_PING_MS = 180000; // 3 min — presence is the heaviest write on the site, so it's kept infrequent. Must stay under the Worker's ONLINE_WINDOW_MS or people flicker offline between pings.
@@ -1829,7 +1830,7 @@
       // there's no reason to allow markup.
       const broadcastBanner = document.getElementById('broadcast-banner');
       function fetchBroadcast() {
-        fetch(API_BASE + '/api/broadcast', { cache: 'no-store' })
+        fetch(WORKER_BASE + '/api/broadcast', { cache: 'no-store' })
           .then(function (r) { return r.json(); })
           .then(function (b) {
             const text = b && typeof b.text === 'string' ? b.text.trim() : '';

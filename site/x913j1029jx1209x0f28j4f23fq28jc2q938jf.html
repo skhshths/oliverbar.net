@@ -864,7 +864,8 @@
       const ADMIN_PASSWORD = "asdfasdfasdf"; // same password as the interactive editor, for simplicity
 
       // Paste your deployed Worker URL here (same one used elsewhere).
-      const API_BASE = "https://api.oliverbar.net"; // <-- paste your Worker URL here
+      const API_BASE = "https://api.oliverbar.net"; // Worker: config, pages, games, triggers, dashboard
+      const CHAT_BASE = "https://piapi.oliverbar.net"; // Pi: chat accounts, clear-chat, chat stats
 
       // Optional: if you've attached a second custom domain to the same
       // Worker just for serving custom pages (e.g. pages.oliverbar.net),
@@ -1714,7 +1715,7 @@
         if (!API_BASE) { clearChatStatus.textContent = 'No Worker URL set.'; return; }
         if (!window.confirm('Clear every chat message for everyone? This can’t be undone.')) return;
         clearChatStatus.textContent = 'Clearing...';
-        fetch(API_BASE + '/api/chat/clear', {
+        fetch(CHAT_BASE + '/api/chat/clear', {
           method: 'POST',
           headers: { 'X-Edit-Key': currentEditKey || '' }
         }).then(function (r) {
@@ -1731,7 +1732,7 @@
       function fetchAccounts() {
         if (!API_BASE) return;
         accountsList.innerHTML = '<div id="accounts-loading" style="font-size:12px;color:var(--muted);">Loading...</div>';
-        fetch(API_BASE + '/api/chat/names', {
+        fetch(CHAT_BASE + '/api/chat/names', {
           headers: { 'X-Edit-Key': currentEditKey || '' }
         }).then(function (r) { return r.json(); })
           .then(function (list) { renderAccounts(Array.isArray(list) ? list : []); })
@@ -1761,7 +1762,7 @@
           releaseBtn.textContent = 'Release';
           releaseBtn.addEventListener('click', function () {
             if (!window.confirm('Release "' + account.name + '"? Anyone will be able to claim it fresh with a new PIN.')) return;
-            fetch(API_BASE + '/api/chat/names/release', {
+            fetch(CHAT_BASE + '/api/chat/names/release', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Edit-Key': currentEditKey || '' },
               body: JSON.stringify({ name: account.name })
@@ -2034,13 +2035,12 @@
       // ---------- Dashboard ----------
       function fetchDashboard() {
         if (!API_BASE) return;
+        // Live-tab count and trigger stats live on the Worker; message and
+        // account counts now live on the Pi. Fetch both and merge.
         fetch(API_BASE + '/api/admin/dashboard', {
           headers: { 'X-Edit-Key': currentEditKey || '' }
         }).then(function (r) { return r.json(); })
           .then(function (data) {
-            dashGlobalMessages.textContent = data.totalGlobalMessages != null ? data.totalGlobalMessages : '—';
-            dashDmMessages.textContent = data.totalDmMessages != null ? data.totalDmMessages : '—';
-            dashAccounts.textContent = data.totalAccounts != null ? data.totalAccounts : '—';
             dashLiveNow.textContent = data.liveNow != null ? data.liveNow : '—';
             if (data.topTrigger) {
               dashTopTrigger.textContent = data.topTrigger.slug;
@@ -2051,6 +2051,15 @@
             }
           })
           .catch(function (err) { console.error(err); });
+        fetch(CHAT_BASE + '/api/admin/chat-stats', {
+          headers: { 'X-Edit-Key': currentEditKey || '' }
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+            dashGlobalMessages.textContent = data.totalGlobalMessages != null ? data.totalGlobalMessages : '—';
+            dashDmMessages.textContent = data.totalDmMessages != null ? data.totalDmMessages : '—';
+            dashAccounts.textContent = data.totalAccounts != null ? data.totalAccounts : '—';
+          })
+          .catch(function (err) { console.error('chat-stats:', err); });
       }
 
       // ---------- Backup / restore ----------
