@@ -157,9 +157,16 @@
     <span class="pill">PL <b id="pllevel">1</b></span>
     <span class="pill">Cb <b id="cblevel">3</b></span>
     <span class="pill" id="whopill">—</span>
+    <span class="pill" id="seedpill">🌱 0</span>
     <span class="spacer"></span>
     <span id="boss-hud"><span class="emoji">🔥</span><span id="boss-txt">…</span><button class="go" id="fight-boss">Go</button></span>
     <div id="ticker"><span class="lbl">⭐ Rare drops</span> <span id="ticker-items">…</span></div>
+  </div>
+
+  <div class="hud" id="quest-tracker" style="left:12px;bottom:14px;max-width:230px;background:rgba(20,20,18,.8);border:1px solid var(--border);border-radius:10px;padding:8px 11px;display:none;backdrop-filter:blur(4px)">
+    <div style="font-size:10.5px;color:var(--gold);text-transform:uppercase;letter-spacing:.5px">👵 Quest</div>
+    <div id="qt-text" style="font-size:12.5px;margin-top:3px">—</div>
+    <div class="bar" style="height:6px;background:var(--hp-bg);border-radius:4px;overflow:hidden;margin-top:6px"><div id="qt-bar" style="height:100%;background:var(--xp);width:0%"></div></div>
   </div>
 
   <div class="hud" id="hud-bottom">
@@ -202,6 +209,7 @@
 <div class="modal" id="dye-modal"><div class="box"><h3 id="dye-title">Dye piece</h3><div id="dye-list"></div><button class="close" id="dye-close">Cancel</button></div></div>
 <div class="modal" id="anvil-modal"><div class="box"><h3>⚒️ Anvil — upgrade weapons</h3><div id="anvil-list"></div><button class="close" id="anvil-close">Close</button></div></div>
 <div class="modal" id="quest-modal"><div class="box"><h3>👵 Grandma</h3><div id="quest-body"></div><button class="close" id="quest-close">Close</button></div></div>
+<div class="modal" id="bakery-modal"><div class="box"><h3>🍞 Bakery</h3><div id="bake-list"></div><button class="close" id="bakery-close">Close</button></div></div>
 <div class="celebrate" id="celebrate"></div>
 <div class="toast" id="toast"></div>
 
@@ -287,7 +295,7 @@
   setInterval(function(){ prismHue=(prismHue+8)%360; }, 60); // keep world prismatic moving
 
   function renderSkills() {
-    var order=["attack","strength","defence","hitpoints","ranged","magic"], html="";
+    var order=["attack","strength","defence","hitpoints","ranged","magic","farming"], html="";
     order.forEach(function(sk){ var b=STATE.bars[sk]; if(!b) return; var span=b.nextAt-b.curBase, into=b.xp-b.curBase, pct=span>0?Math.max(0,Math.min(100,into/span*100)):100;
       html+='<div class="skill"><div class="row"><span class="nm">'+sk+'</span><span class="lv">'+b.level+'</span></div><div class="bar"><div style="width:'+pct+'%"></div></div></div>'; });
     $("skills").innerHTML = html;
@@ -303,6 +311,15 @@
     var pll=$("pl-lv"); if(pll) pll.textContent = (STATE.pl>=99?"99 (max)":STATE.pl);
     var pb=$("plbar-fill"); if(pb){ var b=STATE.plBar, span=b.nextAt-b.curBase, into=b.xp-b.curBase; pb.style.width=(b.max?100:(span>0?Math.max(0,Math.min(100,into/span*100)):0))+"%"; }
     var rb=$("rebirth-wrap"); if(rb) rb.style.display = (STATE.pl>=99)?"block":"none";
+    $("seedpill").textContent = "🌱 "+((STATE.inventory&&STATE.inventory.wheat_seeds)||0);
+    updateQuestTracker();
+  }
+  function updateQuestTracker() {
+    var q=STATE.quest, box=$("quest-tracker");
+    if(!q){ box.style.display="none"; return; }
+    box.style.display="block";
+    $("qt-text").innerHTML = q.done ? ('Done! See Grandma 👵 (🪙 '+q.rewardGold+')') : ('Slay '+q.need+' '+esc(q.enemyName)+'s — '+q.have+'/'+q.need);
+    $("qt-bar").style.width = Math.min(100, Math.round(q.have/q.need*100))+"%";
   }
   function wpnMeta(it){ if(it.rng) return "+"+it.rng+" ranged"; if(it.mag) return "+"+it.mag+" magic"; return "+"+(it.str||0)+" str/+"+(it.atk||0)+" atk"; }
   function renderBag() {
@@ -313,10 +330,12 @@
     var html="";
     ids.forEach(function(id){ var it=DEFS.items[id], qty=inv[id];
       var meta = it.type==="dye" ? '<span class="swatch" style="background:'+(it.color==="prismatic"?"linear-gradient(90deg,#f00,#0f0,#00f)":it.color)+'"></span>dye'
-        : it.type==="weapon" ? ("wpn · "+wpnMeta(it)) : it.type==="armor" ? ("armour · +"+(it.def||0)+" def") : it.type==="unique" ? "trophy" : "material";
+        : it.type==="weapon" ? ("wpn · "+wpnMeta(it)) : it.type==="armor" ? ("armour · +"+(it.def||0)+" def")
+        : it.type==="unique" ? "trophy" : it.type==="food" ? ("food · heals "+(it.heal||0)) : it.type==="seed" ? "seed" : "material";
       var acts="";
       if(it.type==="weapon"||it.type==="armor") acts+='<button class="primary" data-eq="'+id+'">Equip</button>';
       if(it.type==="dye") acts+='<button class="primary" data-dye="'+id+'">Apply</button>';
+      if(it.type==="food") acts+='<button class="primary" data-eat="'+id+'">Eat</button>';
       if(it.value) acts+='<button data-sell="'+id+'">Sell '+it.value+'</button>';
       html+='<div class="item"><div class="n"><span class="'+(it.glow?'glow':'')+'">'+esc(displayName(id))+'</span>'+(qty>1?' ×'+qty:'')+'</div><div class="meta">'+meta+'</div><div class="acts">'+acts+'</div></div>';
     });
@@ -324,7 +343,9 @@
     bag.querySelectorAll("[data-eq]").forEach(function(b){ b.addEventListener("click",function(){ doEquip(b.getAttribute("data-eq")); }); });
     bag.querySelectorAll("[data-sell]").forEach(function(b){ b.addEventListener("click",function(){ doSell(b.getAttribute("data-sell")); }); });
     bag.querySelectorAll("[data-dye]").forEach(function(b){ b.addEventListener("click",function(){ openDyePicker(b.getAttribute("data-dye")); }); });
+    bag.querySelectorAll("[data-eat]").forEach(function(b){ b.addEventListener("click",function(){ doEat(b.getAttribute("data-eat")); }); });
   }
+  function doEat(id){ api("/api/game/eat","POST",{item:id}).then(function(r){ if(r.ok){ pHp=Math.min(pHpMax, pHp+r.j.heal); refresh(r.j.state); toast("Ate "+itemName(id)+" · +"+r.j.heal+" HP"); } else toast(r.j.error); }); }
   function renderGear() {
     var slots=[["weapon","Weapon"],["helmet","Helmet"],["body","Body"],["legs","Legs"]], html="";
     slots.forEach(function(s){ var key=s[0], eq=STATE.equipment[key];
@@ -397,8 +418,20 @@
   var dashUntil=0, dashReadyAt=0, dashDir={x:0,y:0}, dashTrail=[];
   var groundCoins=[], lastCoinSpawn=0, pickupBusy=false;
 
-  var WORLD={w:3200,h:2400};
+  var WORLD={w:4800,h:3400};
   var SPAWN={x:520,y:820};
+  var GROW_MS=35000;
+  // villages: farm plots (plant with seeds), a bakery, and houses
+  var VILLAGES=[
+    {name:"Meadowbrook", x:820, y:1220},
+    {name:"Stonehollow", x:2600, y:2500},
+    {name:"Fernwick", x:4000, y:1000},
+  ];
+  VILLAGES.forEach(function(v,vi){
+    v.plots=[]; for(var i=0;i<6;i++){ v.plots.push({x:v.x-90+(i%3)*90, y:v.y-30+Math.floor(i/3)*72, id:"v"+vi+":"+i}); }
+    v.bakery={x:v.x+200, y:v.y-30};
+    v.houses=[{x:v.x-190,y:v.y-70},{x:v.x+150,y:v.y+110},{x:v.x-30,y:v.y-130}];
+  });
   var REACH={melee:44,ranged:170,magic:150};
   var SWING_MS={melee:600,ranged:700,magic:1150}; // magic is slow but AOE + harder
   var ARC_HALF=1.15, POINT_BLANK=32;
@@ -437,7 +470,7 @@
   var FACE={arrowup:-Math.PI/2,arrowdown:Math.PI/2,arrowleft:Math.PI,arrowright:0};
   window.addEventListener("keydown", function(e){
     if($("game").style.display==="none") return;
-    if($("dye-modal").classList.contains("show")||$("anvil-modal").classList.contains("show")||$("quest-modal").classList.contains("show")) return;
+    if($("dye-modal").classList.contains("show")||$("anvil-modal").classList.contains("show")||$("quest-modal").classList.contains("show")||$("bakery-modal").classList.contains("show")) return;
     var k=e.key.toLowerCase();
     if(k==="m"){ menuOpen?closeMenu():openMenu(); e.preventDefault(); return; }
     if(k==="escape"){ if(menuOpen) closeMenu(); return; }
@@ -669,6 +702,8 @@
       ctx.beginPath(); ctx.arc(sx,sy,7,0,Math.PI*2); ctx.fillStyle="#e8c56a"; ctx.fill(); ctx.strokeStyle="#a5842f"; ctx.lineWidth=1.5; ctx.stroke();
       ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.arc(sx-2,sy-2,2,0,Math.PI*2); ctx.fill(); });
 
+    drawVillages(w, h);
+
     // NPCs (anvil, grandma) with a prompt when you're close
     Object.keys(NPCS).forEach(function(k){ var n=NPCS[k], sx=n.x-camera.x, sy=n.y-camera.y; if(sx<-40||sx>w+40||sy<-40||sy>h+40) return;
       var near=Math.hypot(world.player.x-n.x, world.player.y-n.y)<NPC_DIST;
@@ -714,6 +749,35 @@
     floats.forEach(function(f){ ctx.globalAlpha=Math.max(0,f.life/55); ctx.fillStyle=f.color; ctx.font="bold "+f.size+"px sans-serif"; ctx.textAlign="center"; ctx.fillText(f.txt, f.x-camera.x, f.y-camera.y); ctx.globalAlpha=1; });
   }
 
+  function drawVillages(w, h) {
+    var p=world.player;
+    VILLAGES.forEach(function(v){
+      var vx=v.x-camera.x, vy=v.y-camera.y;
+      if(vx<-360||vx>w+360||vy<-360||vy>h+360) return;
+      // packed-earth village ground
+      var g=ctx.createRadialGradient(vx,vy,20,vx,vy,320); g.addColorStop(0,"#3b331f"); g.addColorStop(1,"rgba(26,36,23,0)");
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(vx,vy,320,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="rgba(232,197,106,0.5)"; ctx.font="13px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="alphabetic";
+      ctx.fillText(v.name, vx, vy-165);
+      ctx.textBaseline="middle";
+      v.houses.forEach(function(hh){ ctx.font="32px sans-serif"; ctx.fillText("🏠", hh.x-camera.x, hh.y-camera.y); });
+      // bakery
+      var bnear=Math.hypot(p.x-v.bakery.x,p.y-v.bakery.y)<NPC_DIST, bx=v.bakery.x-camera.x, by=v.bakery.y-camera.y;
+      if(bnear){ ctx.strokeStyle="rgba(232,197,106,0.85)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bx,by,26,0,Math.PI*2); ctx.stroke(); }
+      ctx.font="30px sans-serif"; ctx.fillText("🍞", bx, by);
+      ctx.textBaseline="alphabetic"; ctx.fillStyle=bnear?"#e8c56a":"rgba(176,174,165,0.55)"; ctx.font="12px sans-serif"; ctx.fillText("Bakery (E)", bx, by-24);
+      // plots
+      v.plots.forEach(function(pl){ var px=pl.x-camera.x, py=pl.y-camera.y, planted=STATE.crops[pl.id];
+        ctx.fillStyle="#4a3a24"; ctx.fillRect(px-16,py-13,32,26); ctx.strokeStyle="#241b10"; ctx.lineWidth=1; ctx.strokeRect(px-16,py-13,32,26);
+        if(planted){ var frac=Math.min(1,(Date.now()-planted)/GROW_MS);
+          if(frac>=1){ ctx.font="20px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("🌾", px, py); ctx.textBaseline="alphabetic"; }
+          else { ctx.fillStyle="#7ec86a"; var gh=3+frac*15; ctx.fillRect(px-2, py+11-gh, 4, gh); }
+        }
+        if(Math.hypot(p.x-pl.x,p.y-pl.y)<36){ ctx.strokeStyle="rgba(232,197,106,0.9)"; ctx.lineWidth=2; ctx.strokeRect(px-16,py-13,32,26); }
+      });
+    });
+    ctx.textAlign="left";
+  }
   function drawPlayer(x,y) {
     var eq=STATE.equipment;
     function col(slot,fb){ var c=colorForSlot(eq[slot]); if(c==="prismatic") return "hsl("+prismHue+",70%,55%)"; return c||fb; }
@@ -757,12 +821,44 @@
   // ---------- NPC interaction (anvil, grandma) ----------
   function interactNPC() {
     if(menuOpen) return;
-    var p=world.player, near=null;
-    Object.keys(NPCS).forEach(function(k){ if(Math.hypot(p.x-NPCS[k].x, p.y-NPCS[k].y)<NPC_DIST) near=k; });
+    var p=world.player;
+    // 1) crop plot you're standing on
+    var bestPlot=null, bd=36;
+    VILLAGES.forEach(function(v){ v.plots.forEach(function(pl){ var d=Math.hypot(p.x-pl.x,p.y-pl.y); if(d<bd){ bd=d; bestPlot=pl; } }); });
+    if(bestPlot){ usePlot(bestPlot); return; }
+    // 2) bakery
+    var bakeNear=false; VILLAGES.forEach(function(v){ if(Math.hypot(p.x-v.bakery.x,p.y-v.bakery.y)<NPC_DIST) bakeNear=true; });
+    if(bakeNear){ openBakery(); return; }
+    // 3) anvil / grandma
+    var near=null; Object.keys(NPCS).forEach(function(k){ if(Math.hypot(p.x-NPCS[k].x, p.y-NPCS[k].y)<NPC_DIST) near=k; });
     if(near==="anvil") openAnvil();
     else if(near==="grandma") openQuest();
     else toast("Nothing here to use.");
   }
+  function usePlot(pl) {
+    var planted=STATE.crops[pl.id];
+    if(planted){
+      if(Date.now()-planted >= GROW_MS){
+        api("/api/game/farm/harvest","POST",{plot:pl.id}).then(function(r){ if(r.ok){ STATE=r.j.state; renderMenu(); toast("Harvested "+r.j.qty+"× "+esc(r.j.itemName)+" 🌾"); if(r.j.levelUp) toast('<span class="g">Farming '+r.j.levelUp.level+'!</span>',2400); } else toast(r.j.error); });
+      } else { toast("Still growing… ("+Math.ceil((GROW_MS-(Date.now()-planted))/1000)+"s)"); }
+    } else {
+      if((STATE.inventory.wheat_seeds||0)<1){ toast("Buy wheat seeds from the shop first."); return; }
+      api("/api/game/farm/plant","POST",{plot:pl.id}).then(function(r){ if(r.ok){ STATE=r.j.state; renderMenu(); toast("Planted 🌱"); } else toast(r.j.error); });
+    }
+  }
+  var BAKERY_RECIPES=[
+    { label:"3× Wheat → Bread" },
+    { label:"3× Fine Wheat → Hearty Loaf" },
+    { label:"2× Golden Wheat → 2× Hearty Loaf" },
+  ];
+  function openBakery(){
+    var html='<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">Trade raw crops for refined, tastier food.</p>';
+    BAKERY_RECIPES.forEach(function(r,i){ html+='<button data-bake="'+i+'" style="display:block;width:100%;text-align:left;margin-bottom:7px;padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--panel-2);color:var(--text)">'+esc(r.label)+'</button>'; });
+    $("bake-list").innerHTML=html;
+    $("bake-list").querySelectorAll("[data-bake]").forEach(function(b){ b.addEventListener("click",function(){ doBake(Number(b.getAttribute("data-bake"))); }); });
+    $("bakery-modal").classList.add("show");
+  }
+  function doBake(i){ api("/api/game/bake","POST",{recipe:i}).then(function(r){ if(r.ok){ STATE=r.j.state; renderMenu(); toast("Baked "+r.j.qty+"× "+esc(r.j.outName)+" 🍞"); openBakery(); } else toast(r.j.error); }); }
   function ownedWeapons() {
     var set={}; Object.keys(STATE.inventory).forEach(function(id){ if(DEFS.items[id]&&DEFS.items[id].type==="weapon") set[id]=1; });
     if(STATE.equipment.weapon && STATE.equipment.weapon.item) set[STATE.equipment.weapon.item]=1;
@@ -803,6 +899,8 @@
   }
   $("quest-close").addEventListener("click", function(){ $("quest-modal").classList.remove("show"); });
   $("quest-modal").addEventListener("click", function(e){ if(e.target===this) this.classList.remove("show"); });
+  $("bakery-close").addEventListener("click", function(){ $("bakery-modal").classList.remove("show"); });
+  $("bakery-modal").addEventListener("click", function(e){ if(e.target===this) this.classList.remove("show"); });
 
   $("rebirth").addEventListener("click", function(){
     if(!confirm("Rebirth to NG+"+((STATE.ngPlus||0)+1)+"?\nYour skill levels reset to 1, but you keep all items, coins and weapon upgrades — and gain +5% damage & +10% xp permanently.")) return;
