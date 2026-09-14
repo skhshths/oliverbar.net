@@ -170,7 +170,7 @@
       <div class="hb" data-style="ranged"><div class="k">2</div><div class="e">🏹</div><div class="n">Ranged</div></div>
       <div class="hb" data-style="magic"><div class="k">3</div><div class="e">✨</div><div class="n">Magic</div></div>
     </div>
-    <div class="hint"><kbd>WASD</kbd> move · <kbd>← ↑ → ↓</kbd> aim · <kbd>Space</kbd> attack · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> style · <kbd>E</kbd> use · <kbd>M</kbd> menu</div>
+    <div class="hint"><kbd>WASD</kbd> move · <kbd>← ↑ → ↓</kbd> aim · <kbd>Space</kbd> attack · <kbd>Q</kbd> dash · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> style · <kbd>E</kbd> use · <kbd>M</kbd> menu</div>
   </div>
 
   <div id="menu">
@@ -394,6 +394,7 @@
   var keys={}, style="melee", facing=Math.PI/2, lastSwing=0;
   var floats=[], projectiles=[], aoeBursts=[];
   var pHp=10, pHpMax=10, lastHurt=0, invulnUntil=0;
+  var dashUntil=0, dashReadyAt=0, dashDir={x:0,y:0}, dashTrail=[];
   var groundCoins=[], lastCoinSpawn=0, pickupBusy=false;
 
   var WORLD={w:3200,h:2400};
@@ -402,6 +403,7 @@
   var SWING_MS={melee:600,ranged:700,magic:1150}; // magic is slow but AOE + harder
   var ARC_HALF=1.15, POINT_BLANK=32;
   var AGGRO=210, EN_SPEED=1.15, EN_HITDIST=44, EN_CADENCE=1250;
+  var DASH_MS=150, DASH_SPEED=12, DASH_CD=1300; // Q dash: fast, brief, invulnerable
   var ZONES={
     rat:{x:520,y:520,n:6,r:230,biome:"#25341f",accent:"#3c5a2a"}, goblin:{x:1350,y:430,n:6,r:250,biome:"#20301c",accent:"#41692c"},
     skeleton:{x:2400,y:640,n:6,r:270,biome:"#2a2c33",accent:"#474b57"}, wolf:{x:660,y:1560,n:5,r:270,biome:"#30271d",accent:"#5a4327"},
@@ -427,7 +429,7 @@
     resizeCanvas(); window.addEventListener("resize", resizeCanvas);
     requestAnimationFrame(loop);
   }
-  function makeEnemy(type,x,y){ var def=DEFS.enemies[type]; return {type:type,def:def,homeX:x,homeY:y,x:x,y:y,curHp:def.hp,maxHp:def.hp,alive:true,respawnAt:0,nextHit:0,dmgFlash:0,blockFlash:0}; }
+  function makeEnemy(type,x,y){ var def=DEFS.enemies[type]; return {type:type,def:def,homeX:x,homeY:y,x:x,y:y,curHp:def.hp,maxHp:def.hp,alive:true,respawnAt:0,nextHit:0,dmgFlash:0,blockFlash:0,aggroed:false}; }
   function resizeCanvas(){ if(!cv) return; cv.width=window.innerWidth; cv.height=window.innerHeight; }
 
   // input
@@ -444,12 +446,21 @@
     if(k==="2"){ setStyle("ranged"); return; }
     if(k==="3"){ setStyle("magic"); return; }
     if(k==="e"){ interactNPC(); e.preventDefault(); return; }
+    if(k==="q"){ tryDash(); e.preventDefault(); return; }
     if(k in FACE){ facing=FACE[k]; e.preventDefault(); return; }
     if(MOVE_KEYS.indexOf(k)===-1) return;
     keys[k]=true; e.preventDefault();
   });
   window.addEventListener("keyup", function(e){ keys[e.key.toLowerCase()]=false; });
   function setStyle(s){ style=s; document.querySelectorAll(".hb").forEach(function(el){ el.classList.toggle("active", el.getAttribute("data-style")===s); }); }
+  // Dash in the current MOVEMENT direction (not facing); brief + invulnerable.
+  function tryDash(){
+    var now=Date.now(); if(now<dashReadyAt || menuOpen) return;
+    var dx=0,dy=0; if(keys["w"])dy-=1; if(keys["s"])dy+=1; if(keys["a"])dx-=1; if(keys["d"])dx+=1;
+    if(!dx&&!dy) return; // only dashes while you're moving
+    var m=Math.hypot(dx,dy); dashDir={x:dx/m,y:dy/m};
+    dashUntil=now+DASH_MS; dashReadyAt=now+DASH_CD; invulnUntil=Math.max(invulnUntil, dashUntil);
+  }
   document.querySelectorAll(".hb").forEach(function(el){ el.addEventListener("click",function(){ setStyle(el.getAttribute("data-style")); }); });
   $("fight-boss").addEventListener("click", function(){ if(world&&world.boss){ world.player.x=BOSS_SPOT.x-80; world.player.y=BOSS_SPOT.y+70; } });
 
@@ -471,10 +482,15 @@
     if(STATE.maxHp!==pHpMax){ var delta=STATE.maxHp-pHpMax; pHpMax=STATE.maxHp; pHp=Math.max(1,Math.min(pHpMax,pHp+delta)); }
 
     if(!menuOpen){
-      // movement (WASD)
-      var sp=2.7, dx=0, dy=0;
-      if(keys["w"]) dy-=1; if(keys["s"]) dy+=1; if(keys["a"]) dx-=1; if(keys["d"]) dx+=1;
-      if(dx||dy){ var m=Math.hypot(dx,dy); p.x+=dx/m*sp; p.y+=dy/m*sp; }
+      if(now<dashUntil){
+        // dashing: fast slide in the locked movement direction
+        p.x+=dashDir.x*DASH_SPEED; p.y+=dashDir.y*DASH_SPEED;
+        dashTrail.push({x:p.x,y:p.y,life:14});
+      } else {
+        var sp=2.7, dx=0, dy=0;
+        if(keys["w"]) dy-=1; if(keys["s"]) dy+=1; if(keys["a"]) dx-=1; if(keys["d"]) dx+=1;
+        if(dx||dy){ var m=Math.hypot(dx,dy); p.x+=dx/m*sp; p.y+=dy/m*sp; }
+      }
       p.x=Math.max(16,Math.min(WORLD.w-16,p.x)); p.y=Math.max(16,Math.min(WORLD.h-16,p.y));
       // attack (hold space)
       if(keys[" "] && now-lastSwing>=SWING_MS[style]){ lastSwing=now; doSwing(now); }
@@ -490,6 +506,7 @@
     floats.forEach(function(f){ f.y+=f.vy; f.life--; }); floats=floats.filter(function(f){return f.life>0;});
     projectiles.forEach(function(pr){ pr.life--; }); projectiles=projectiles.filter(function(pr){return pr.life>0;});
     aoeBursts.forEach(function(a){ a.life--; a.r=(18-a.life)*7; }); aoeBursts=aoeBursts.filter(function(a){return a.life>0;});
+    dashTrail.forEach(function(t){ t.life--; }); dashTrail=dashTrail.filter(function(t){return t.life>0;});
     // hud hp
     $("hpbar").firstChild.style.width=Math.max(0,pHp/pHpMax*100)+"%";
     $("hp-num").textContent=Math.max(0,Math.ceil(pHp))+" / "+pHpMax;
@@ -503,6 +520,8 @@
       if(d>POINT_BLANK && angDiff(Math.atan2(e.y-p.y,e.x-p.x),facing)>ARC_HALF) return; out.push(e); });
     return out;
   }
+  // when your Player Level is 5+ above the enemy's level, nothing is blocked
+  function alwaysHits(e){ return STATE.pl >= ((e.def && e.def.level) || 0) + 5; }
   function doSwing(now) {
     var cs=STATE.combatStats[style];
     if(style==="magic"){
@@ -511,7 +530,7 @@
       var dead=[];
       group.forEach(function(t){
         projectiles.push({x:world.player.x,y:world.player.y,tx:t.x,ty:t.y,life:9,magic:true});
-        if(Math.random() < hitChance(cs.acc, t.def.def)){
+        if(alwaysHits(t) || Math.random() < hitChance(cs.acc, t.def.def)){
           var dmg=randInt(2, Math.max(3, Math.round(cs.maxHit*1.6))); t.curHp-=dmg; t.dmgFlash=6;
           addFloat(t.x+(Math.random()*16-8), t.y-14, ""+dmg, "#b98cff", 16);
           if(t.curHp<=0){ markDead(t, now); dead.push(t); }
@@ -523,7 +542,7 @@
     // melee / ranged: single target
     var t=nearestTarget(); if(!t) return;
     if(style==="ranged") projectiles.push({x:world.player.x,y:world.player.y,tx:t.x,ty:t.y,life:9,magic:false});
-    if(Math.random() < hitChance(cs.acc, t.def.def)) {
+    if(alwaysHits(t) || Math.random() < hitChance(cs.acc, t.def.def)) {
       var dmg2=randInt(1, cs.maxHit); t.curHp-=dmg2; t.dmgFlash=6;
       addFloat(t.x+(Math.random()*16-8), t.y-14, ""+dmg2, "#fff", 16);
       if(t.curHp<=0){ markDead(t, now); reportKills([t], now); }
@@ -546,13 +565,14 @@
     var p=world.player;
     var list=world.enemies;
     for(var i=0;i<list.length;i++){ var e=list[i];
-      if(!e.alive){ if(now>=e.respawnAt){ e.alive=true; e.curHp=e.maxHp; e.x=e.homeX; e.y=e.homeY; } continue; }
+      if(!e.alive){ if(now>=e.respawnAt){ e.alive=true; e.curHp=e.maxHp; e.x=e.homeX; e.y=e.homeY; e.aggroed=false; } continue; }
       if(e.dmgFlash>0) e.dmgFlash--; if(e.blockFlash>0) e.blockFlash--;
       var d=Math.hypot(p.x-e.x, p.y-e.y);
-      if(d<AGGRO){ // chase
+      if(d<AGGRO) e.aggroed=true;             // once woken, hunts you forever
+      if(e.aggroed){ // chase indefinitely until it dies
         if(d>EN_HITDIST-6){ e.x+=(p.x-e.x)/d*EN_SPEED; e.y+=(p.y-e.y)/d*EN_SPEED; }
         if(d<EN_HITDIST && now>=e.nextHit && now>invulnUntil){ e.nextHit=now+EN_CADENCE; enemyHitsYou(e, now); }
-      } else { // drift home + heal
+      } else { // idle drift near home + heal
         var dh=Math.hypot(e.homeX-e.x, e.homeY-e.y);
         if(dh>4){ e.x+=(e.homeX-e.x)/dh*0.5; e.y+=(e.homeY-e.y)/dh*0.5; }
         if(e.curHp<e.maxHp) e.curHp=Math.min(e.maxHp, e.curHp+e.maxHp*0.01);
@@ -685,6 +705,9 @@
     // AOE magic bursts
     aoeBursts.forEach(function(a){ ctx.globalAlpha=Math.max(0,a.life/18); ctx.strokeStyle="#8e6fd6"; ctx.lineWidth=3;
       ctx.beginPath(); ctx.arc(a.x-camera.x, a.y-camera.y, a.r, 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha=1; });
+
+    // dash trail
+    dashTrail.forEach(function(t){ ctx.globalAlpha=Math.max(0,t.life/14)*0.5; ctx.fillStyle="#e8c56a"; ctx.beginPath(); ctx.arc(t.x-camera.x, t.y-camera.y, 8, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha=1; });
 
     drawPlayer(world.player.x-camera.x, world.player.y-camera.y);
 
