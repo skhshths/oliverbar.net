@@ -154,6 +154,7 @@
 
   <div class="hud" id="hud-top">
     <span class="pill coins">🪙 <b id="coins">0</b></span>
+    <span class="pill">PL <b id="pllevel">1</b></span>
     <span class="pill">Cb <b id="cblevel">3</b></span>
     <span class="pill" id="whopill">—</span>
     <span class="spacer"></span>
@@ -169,30 +170,38 @@
       <div class="hb" data-style="ranged"><div class="k">2</div><div class="e">🏹</div><div class="n">Ranged</div></div>
       <div class="hb" data-style="magic"><div class="k">3</div><div class="e">✨</div><div class="n">Magic</div></div>
     </div>
-    <div class="hint"><kbd>WASD</kbd> move · <kbd>← ↑ → ↓</kbd> aim · <kbd>Space</kbd> attack · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> style · <kbd>M</kbd> menu</div>
+    <div class="hint"><kbd>WASD</kbd> move · <kbd>← ↑ → ↓</kbd> aim · <kbd>Space</kbd> attack · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> style · <kbd>E</kbd> use · <kbd>M</kbd> menu</div>
   </div>
 
   <div id="menu">
     <div class="menu-card">
       <div class="menu-head"><h2 id="menu-name">Character</h2><button class="x" id="menu-close">✕ Close (M)</button></div>
-      <div class="doll-wrap"><div id="doll"></div><div><div class="whoami"><span id="who">Hero</span><small id="who-sub">Combat 3</small></div></div></div>
+      <div class="doll-wrap"><div id="doll"></div><div style="flex:1"><div class="whoami"><span id="who">Hero</span><small id="who-sub">Combat 3</small></div>
+        <div style="margin-top:8px"><div class="skill"><div class="row"><span class="nm">Player Level</span><span class="lv" id="pl-lv">1</span></div><div class="bar"><div id="plbar-fill" style="width:0%;background:var(--gold)"></div></div></div></div></div></div>
       <div class="skills" id="skills"></div>
       <div class="tabs">
         <button data-tab="bag" class="active">Bag</button>
         <button data-tab="gear">Gear</button>
         <button data-tab="shop">Shop</button>
+        <button data-tab="help">Help</button>
         <button data-tab="board">Ranks</button>
       </div>
       <div class="panel active" id="panel-bag"><div class="grid" id="bag"></div></div>
       <div class="panel" id="panel-gear"><div class="slots" id="slots"></div></div>
       <div class="panel" id="panel-shop"><div class="grid" id="shop"></div></div>
+      <div class="panel" id="panel-help"><div id="help"></div></div>
       <div class="panel" id="panel-board"><div id="board"></div></div>
-      <div class="menu-foot"><button id="logout">Log out</button></div>
+      <div class="menu-foot">
+        <div id="rebirth-wrap" style="display:none;margin-bottom:10px"><button id="rebirth" style="border-color:var(--gold);color:var(--gold)">✨ Rebirth → NG+ (resets skills, keeps items, +5% dmg &amp; +10% xp each)</button></div>
+        <button id="logout">Log out</button>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="modal" id="dye-modal"><div class="box"><h3 id="dye-title">Dye piece</h3><div id="dye-list"></div><button class="close" id="dye-close">Cancel</button></div></div>
+<div class="modal" id="anvil-modal"><div class="box"><h3>⚒️ Anvil — upgrade weapons</h3><div id="anvil-list"></div><button class="close" id="anvil-close">Close</button></div></div>
+<div class="modal" id="quest-modal"><div class="box"><h3>👵 Grandma</h3><div id="quest-body"></div><button class="close" id="quest-close">Close</button></div></div>
 <div class="celebrate" id="celebrate"></div>
 <div class="toast" id="toast"></div>
 
@@ -249,6 +258,8 @@
 
   // ---------- menu rendering ----------
   function itemName(id) { return DEFS.items[id] ? DEFS.items[id].name : id; }
+  function weaponPlus(id) { return (STATE.weaponUpgrades && STATE.weaponUpgrades[id]) || 0; }
+  function displayName(id) { var it=DEFS.items[id]; if(it && it.type==="weapon"){ var p=weaponPlus(id); return it.name + (p?" +"+p:""); } return it?it.name:id; }
   function colorForSlot(slotObj) {
     if (!slotObj || !slotObj.item) return null;
     var it = DEFS.items[slotObj.item];
@@ -284,8 +295,14 @@
   function renderHeader() {
     $("coins").textContent = STATE.coins.toLocaleString();
     $("cblevel").textContent = STATE.combat;
+    $("pllevel").textContent = STATE.pl + (STATE.ngPlus?(" · NG+"+STATE.ngPlus):"");
     $("who").textContent = STATE.name; $("whopill").textContent = STATE.name; $("menu-name").textContent = STATE.name;
-    $("who-sub").textContent = "Combat "+STATE.combat+" · "+STATE.totalKills+" kills";
+    var ng = STATE.ngPlus ? " · NG+"+STATE.ngPlus : "";
+    $("who-sub").textContent = "PL "+STATE.pl+" · Combat "+STATE.combat+ng+" · "+STATE.totalKills+" kills";
+    // PL progress bar
+    var pll=$("pl-lv"); if(pll) pll.textContent = (STATE.pl>=99?"99 (max)":STATE.pl);
+    var pb=$("plbar-fill"); if(pb){ var b=STATE.plBar, span=b.nextAt-b.curBase, into=b.xp-b.curBase; pb.style.width=(b.max?100:(span>0?Math.max(0,Math.min(100,into/span*100)):0))+"%"; }
+    var rb=$("rebirth-wrap"); if(rb) rb.style.display = (STATE.pl>=99)?"block":"none";
   }
   function wpnMeta(it){ if(it.rng) return "+"+it.rng+" ranged"; if(it.mag) return "+"+it.mag+" magic"; return "+"+(it.str||0)+" str/+"+(it.atk||0)+" atk"; }
   function renderBag() {
@@ -301,7 +318,7 @@
       if(it.type==="weapon"||it.type==="armor") acts+='<button class="primary" data-eq="'+id+'">Equip</button>';
       if(it.type==="dye") acts+='<button class="primary" data-dye="'+id+'">Apply</button>';
       if(it.value) acts+='<button data-sell="'+id+'">Sell '+it.value+'</button>';
-      html+='<div class="item"><div class="n"><span class="'+(it.glow?'glow':'')+'">'+esc(it.name)+'</span>'+(qty>1?' ×'+qty:'')+'</div><div class="meta">'+meta+'</div><div class="acts">'+acts+'</div></div>';
+      html+='<div class="item"><div class="n"><span class="'+(it.glow?'glow':'')+'">'+esc(displayName(id))+'</span>'+(qty>1?' ×'+qty:'')+'</div><div class="meta">'+meta+'</div><div class="acts">'+acts+'</div></div>';
     });
     var bag=$("bag"); bag.innerHTML=html;
     bag.querySelectorAll("[data-eq]").forEach(function(b){ b.addEventListener("click",function(){ doEquip(b.getAttribute("data-eq")); }); });
@@ -311,7 +328,7 @@
   function renderGear() {
     var slots=[["weapon","Weapon"],["helmet","Helmet"],["body","Body"],["legs","Legs"]], html="";
     slots.forEach(function(s){ var key=s[0], eq=STATE.equipment[key];
-      if(eq&&eq.item){ var it=DEFS.items[eq.item]; var label='<span style="'+(it.glow?'color:var(--gold)':'')+'">'+esc(it.name)+'</span>'; var dyeInfo="";
+      if(eq&&eq.item){ var it=DEFS.items[eq.item]; var label='<span style="'+(it.glow?'color:var(--gold)':'')+'">'+esc(displayName(eq.item))+'</span>'; var dyeInfo="";
         if(eq.dye){ var d=DEFS.items[eq.dye]; dyeInfo=' <small>· <span class="swatch" style="background:'+(d.color==="prismatic"?"linear-gradient(90deg,#f00,#0f0,#00f)":d.color)+'"></span>'+esc(d.name)+'</small>'; }
         var dyeBtn=it.dyeable?'<button data-dyeslot="'+key+'">Dye</button>':'';
         html+='<div class="slot"><span class="sn">'+s[1]+'</span><span class="si">'+label+dyeInfo+'</span><span class="sa">'+dyeBtn+'<button data-unequip="'+key+'">Remove</button></span></div>';
@@ -333,10 +350,30 @@
   function renderBoard() {
     api("/api/game/leaderboard").then(function(r){ var rows=r.j||[];
       if(!rows.length){ $("board").innerHTML='<div class="empty">No heroes yet.</div>'; return; }
-      var html='<table class="board"><tr><th>#</th><th>Name</th><th>Total</th><th>Cb</th><th>Kills</th><th>Boss</th></tr>';
-      rows.forEach(function(p,i){ html+='<tr><td class="rank">'+(i+1)+'</td><td>'+esc(p.name)+'</td><td class="r">'+p.totalLevel+'</td><td class="r">'+p.combat+'</td><td class="r">'+p.kills+'</td><td class="r">'+p.bossKills+'</td></tr>'; });
+      var html='<table class="board"><tr><th>#</th><th>Name</th><th>PL</th><th>Cb</th><th>Kills</th></tr>';
+      rows.forEach(function(p,i){ var ng=p.ngPlus?' <span style="color:var(--gold)">NG+'+p.ngPlus+'</span>':'';
+        html+='<tr><td class="rank">'+(i+1)+'</td><td>'+esc(p.name)+ng+'</td><td class="r">'+p.pl+'</td><td class="r">'+p.combat+'</td><td class="r">'+p.kills+'</td></tr>'; });
       $("board").innerHTML=html+'</table>';
     });
+  }
+  function chancePct(ch){ if(ch>=1) return "always"; if(ch>=0.05) return Math.round(ch*100)+"%"; return "1 / "+Math.round(1/ch); }
+  function renderHelp() {
+    var disc=STATE.discovered||{};
+    var html='<div style="font-size:12px;color:var(--dim);margin-bottom:12px">Collection log — a drop’s rate is revealed once you’ve found it at least once.</div>';
+    var srcs=Object.keys(DEFS.enemies).map(function(k){ return DEFS.enemies[k]; }); srcs.push(DEFS.boss);
+    srcs.forEach(function(def){
+      var rows=[];
+      (def.materials||[]).forEach(function(m){ rows.push([m.id,m.chance]); });
+      (def.dyes||[]).forEach(function(d){ rows.push([d.id,d.chance]); });
+      (def.gear||[]).forEach(function(g){ rows.push([g.id,g.chance]); });
+      if(def.unique) rows.push([def.unique.id, def.unique.chance]);
+      var got=0, items=rows.map(function(r){ var id=r[0], ch=r[1], known=disc[id]; if(known) got++;
+        return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-top:1px solid var(--border)">'+
+          '<span>'+(known?('<span class="'+(DEFS.items[id].glow?'glow':'')+'" style="'+(DEFS.items[id].glow?'color:var(--gold)':'')+'">'+esc(DEFS.items[id].name)+'</span>'):'<span style="color:var(--dim)">??? undiscovered</span>')+'</span>'+
+          '<span style="color:'+(known?'var(--muted)':'var(--dim)')+'">'+(known?chancePct(ch):'—')+'</span></div>'; }).join("");
+      html+='<div style="margin-bottom:14px"><div style="font-weight:600;font-size:13px;margin-bottom:2px">'+esc(def.name)+' <span style="color:var(--dim);font-weight:400">('+got+'/'+rows.length+')</span></div>'+items+'</div>';
+    });
+    $("help").innerHTML=html;
   }
   function renderMenu() { renderHeader(); renderDoll(); renderSkills(); renderBag(); renderGear(); renderShop(); }
 
@@ -344,7 +381,7 @@
   document.querySelectorAll(".tabs button").forEach(function(b){ b.addEventListener("click",function(){
     document.querySelectorAll(".tabs button").forEach(function(x){x.classList.remove("active");});
     document.querySelectorAll(".panel").forEach(function(x){x.classList.remove("active");});
-    b.classList.add("active"); var t=b.getAttribute("data-tab"); $("panel-"+t).classList.add("active"); if(t==="board") renderBoard();
+    b.classList.add("active"); var t=b.getAttribute("data-tab"); $("panel-"+t).classList.add("active"); if(t==="board") renderBoard(); if(t==="help") renderHelp();
   }); });
 
   var menuOpen = false;
@@ -355,21 +392,28 @@
   // ================= WORLD =================
   var cv, ctx, world=null, camera={x:0,y:0};
   var keys={}, style="melee", facing=Math.PI/2, lastSwing=0;
-  var floats=[], projectiles=[];
+  var floats=[], projectiles=[], aoeBursts=[];
   var pHp=10, pHpMax=10, lastHurt=0, invulnUntil=0;
   var groundCoins=[], lastCoinSpawn=0, pickupBusy=false;
 
   var WORLD={w:3200,h:2400};
   var SPAWN={x:520,y:820};
-  var REACH={melee:44,ranged:170,magic:170};
-  var SWING_MS={melee:600,ranged:700,magic:720};
+  var REACH={melee:44,ranged:170,magic:150};
+  var SWING_MS={melee:600,ranged:700,magic:1150}; // magic is slow but AOE + harder
   var ARC_HALF=1.15, POINT_BLANK=32;
   var AGGRO=210, EN_SPEED=1.15, EN_HITDIST=44, EN_CADENCE=1250;
   var ZONES={
-    rat:{x:520,y:520,n:6,r:230}, goblin:{x:1350,y:430,n:6,r:250}, skeleton:{x:2400,y:640,n:6,r:270},
-    wolf:{x:660,y:1560,n:5,r:270}, golem:{x:1750,y:1780,n:5,r:290}, wraith:{x:2650,y:1660,n:5,r:270},
+    rat:{x:520,y:520,n:6,r:230,biome:"#25341f",accent:"#3c5a2a"}, goblin:{x:1350,y:430,n:6,r:250,biome:"#20301c",accent:"#41692c"},
+    skeleton:{x:2400,y:640,n:6,r:270,biome:"#2a2c33",accent:"#474b57"}, wolf:{x:660,y:1560,n:5,r:270,biome:"#30271d",accent:"#5a4327"},
+    golem:{x:1750,y:1780,n:5,r:290,biome:"#2b2d30",accent:"#4a4d52"}, wraith:{x:2650,y:1660,n:5,r:270,biome:"#241c33",accent:"#432c6a"},
   };
   var BOSS_SPOT={x:1650,y:1180};
+  // NPCs you walk up to and press E near
+  var NPCS={
+    anvil:{x:820,y:900,emoji:"⚒️",label:"Anvil (E)"},
+    grandma:{x:400,y:640,emoji:"👵",label:"Grandma (E)"},
+  };
+  var NPC_DIST=58;
   var EMOJI={rat:"🐀",goblin:"👺",skeleton:"💀",wolf:"🐺",golem:"🗿",wraith:"👻",boss:"🔥"};
 
   function initWorld() {
@@ -391,7 +435,7 @@
   var FACE={arrowup:-Math.PI/2,arrowdown:Math.PI/2,arrowleft:Math.PI,arrowright:0};
   window.addEventListener("keydown", function(e){
     if($("game").style.display==="none") return;
-    if($("dye-modal").classList.contains("show")) return;
+    if($("dye-modal").classList.contains("show")||$("anvil-modal").classList.contains("show")||$("quest-modal").classList.contains("show")) return;
     var k=e.key.toLowerCase();
     if(k==="m"){ menuOpen?closeMenu():openMenu(); e.preventDefault(); return; }
     if(k==="escape"){ if(menuOpen) closeMenu(); return; }
@@ -399,6 +443,7 @@
     if(k==="1"){ setStyle("melee"); return; }
     if(k==="2"){ setStyle("ranged"); return; }
     if(k==="3"){ setStyle("magic"); return; }
+    if(k==="e"){ interactNPC(); e.preventDefault(); return; }
     if(k in FACE){ facing=FACE[k]; e.preventDefault(); return; }
     if(MOVE_KEYS.indexOf(k)===-1) return;
     keys[k]=true; e.preventDefault();
@@ -444,32 +489,56 @@
     // floats / projectiles decay
     floats.forEach(function(f){ f.y+=f.vy; f.life--; }); floats=floats.filter(function(f){return f.life>0;});
     projectiles.forEach(function(pr){ pr.life--; }); projectiles=projectiles.filter(function(pr){return pr.life>0;});
+    aoeBursts.forEach(function(a){ a.life--; a.r=(18-a.life)*7; }); aoeBursts=aoeBursts.filter(function(a){return a.life>0;});
     // hud hp
     $("hpbar").firstChild.style.width=Math.max(0,pHp/pHpMax*100)+"%";
     $("hp-num").textContent=Math.max(0,Math.ceil(pHp))+" / "+pHpMax;
   }
 
-  function doSwing(now) {
-    var t=nearestTarget(); if(!t) return;
-    var cs=STATE.combatStats[style];
-    if(style!=="melee") projectiles.push({x:world.player.x,y:world.player.y,tx:t.x,ty:t.y,life:9,magic:style==="magic"});
-    if(Math.random() < hitChance(cs.acc, t.def.def)) {
-      var dmg=randInt(1, cs.maxHit); t.curHp-=dmg; t.dmgFlash=6;
-      addFloat(t.x+(Math.random()*16-8), t.y-14, ""+dmg, "#fff", 16);
-      if(t.curHp<=0) killEnemy(t, now);
-    } else {
-      t.blockFlash=14; addFloat(t.x+10, t.y-16, "block", "#9a988f", 12);
-    }
+  // all alive enemies inside the current aim cone (used by magic AOE)
+  function targetsInCone() {
+    var p=world.player, reach=REACH[style], out=[];
+    var list=world.enemies.slice(); if(world.boss) list.push(world.boss);
+    list.forEach(function(e){ if(!e.alive) return; var d=Math.hypot(e.x-p.x,e.y-p.y); if(d>reach+24) return;
+      if(d>POINT_BLANK && angDiff(Math.atan2(e.y-p.y,e.x-p.x),facing)>ARC_HALF) return; out.push(e); });
+    return out;
   }
-
-  function killEnemy(enemy, now) {
+  function doSwing(now) {
+    var cs=STATE.combatStats[style];
+    if(style==="magic"){
+      var group=targetsInCone(); if(!group.length) return;
+      aoeBursts.push({x:world.player.x+Math.cos(facing)*70, y:world.player.y+Math.sin(facing)*70, r:0, life:18});
+      var dead=[];
+      group.forEach(function(t){
+        projectiles.push({x:world.player.x,y:world.player.y,tx:t.x,ty:t.y,life:9,magic:true});
+        if(Math.random() < hitChance(cs.acc, t.def.def)){
+          var dmg=randInt(2, Math.max(3, Math.round(cs.maxHit*1.6))); t.curHp-=dmg; t.dmgFlash=6;
+          addFloat(t.x+(Math.random()*16-8), t.y-14, ""+dmg, "#b98cff", 16);
+          if(t.curHp<=0){ markDead(t, now); dead.push(t); }
+        } else { t.blockFlash=14; addFloat(t.x+10, t.y-16, "block", "#9a988f", 12); }
+      });
+      if(dead.length) reportKills(dead, now);
+      return;
+    }
+    // melee / ranged: single target
+    var t=nearestTarget(); if(!t) return;
+    if(style==="ranged") projectiles.push({x:world.player.x,y:world.player.y,tx:t.x,ty:t.y,life:9,magic:false});
+    if(Math.random() < hitChance(cs.acc, t.def.def)) {
+      var dmg2=randInt(1, cs.maxHit); t.curHp-=dmg2; t.dmgFlash=6;
+      addFloat(t.x+(Math.random()*16-8), t.y-14, ""+dmg2, "#fff", 16);
+      if(t.curHp<=0){ markDead(t, now); reportKills([t], now); }
+    } else { t.blockFlash=14; addFloat(t.x+10, t.y-16, "block", "#9a988f", 12); }
+  }
+  function markDead(enemy, now) {
     enemy.alive=false;
-    var target = enemy.isBoss ? "boss" : enemy.type;
     if(enemy.isBoss){ world.bossKilledSpawn=world.curBossSpawn; world.boss=null; }
     else { enemy.respawnAt=now+2800; enemy.curHp=enemy.maxHp; }
-    api("/api/game/kill","POST",{target:target,style:style}).then(function(r){
+  }
+  function reportKills(enemies, now) {
+    var targets=enemies.map(function(e){ return e.isBoss?"boss":e.type; });
+    api("/api/game/kill","POST",{targets:targets, style:style}).then(function(r){
       if(!r.ok){ if(r.status!==429) logMsg(r.j.error||"…"); return; }
-      applyVictory(r.j, enemy);
+      applyVictory(r.j, enemies[0]);
     }).catch(function(){});
   }
 
@@ -540,6 +609,7 @@
     if(parts.length) logMsg((enemy&&enemy.isBoss?"Warden down! ":"")+parts.join(" · "), d.globalDrops&&d.globalDrops.length);
     renderHeader(); renderDoll(); renderSkills(); renderBag(); renderGear(); renderShop();
     (d.levelUps||[]).forEach(function(lu){ toast('<span class="g">Level up!</span> '+lu.skill+' is now '+lu.level, 2400); });
+    if(d.questAdvanced && STATE.quest && STATE.quest.done) toast('<span class="g">Quest done!</span> Return to Grandma 👵', 2800);
     if(d.globalDrops&&d.globalDrops.length){ celebrate(); d.globalDrops.forEach(function(g){ toast('<span class="g">⭐ RARE!</span> You got <b>'+esc(g.itemName)+'</b>!', 3200); }); }
   }
   function logMsg(html, gold){ $("world-log").innerHTML = gold?'<span class="g">'+html+'</span>':html; }
@@ -549,10 +619,26 @@
   function draw() {
     var w=cv.width, h=cv.height;
     ctx.clearRect(0,0,w,h);
-    ctx.fillStyle="#14140f"; ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle="rgba(255,255,255,0.03)"; ctx.lineWidth=1; var grid=50;
+    // base grassy ground
+    ctx.fillStyle="#1a2417"; ctx.fillRect(0,0,w,h);
+    // soft biome patches per zone (colour the world)
+    Object.keys(ZONES).forEach(function(type){ var z=ZONES[type], sx=z.x-camera.x, sy=z.y-camera.y, rr=z.r*1.5;
+      if(sx<-rr||sx>w+rr||sy<-rr||sy>h+rr) return;
+      var bg=ctx.createRadialGradient(sx,sy,20,sx,sy,rr); bg.addColorStop(0,z.biome); bg.addColorStop(1,"rgba(26,36,23,0)");
+      ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(sx,sy,rr,0,Math.PI*2); ctx.fill(); });
+    // boss lava patch
+    var bx=BOSS_SPOT.x-camera.x, by=BOSS_SPOT.y-camera.y;
+    var lv=ctx.createRadialGradient(bx,by,20,bx,by,320); lv.addColorStop(0,"#3a1c12"); lv.addColorStop(1,"rgba(26,36,23,0)");
+    ctx.fillStyle=lv; ctx.beginPath(); ctx.arc(bx,by,320,0,Math.PI*2); ctx.fill();
+    // faint grid
+    ctx.strokeStyle="rgba(255,255,255,0.025)"; ctx.lineWidth=1; var grid=50;
     for(var gx=-(camera.x%grid);gx<w;gx+=grid){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,h); ctx.stroke(); }
     for(var gy=-(camera.y%grid);gy<h;gy+=grid){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+    // scattered flecks of colour for texture (deterministic per cell)
+    for(var fx=Math.floor(camera.x/90)*90; fx<camera.x+w; fx+=90){ for(var fy=Math.floor(camera.y/90)*90; fy<camera.y+h; fy+=90){
+      var seed=(fx*73856093 ^ fy*19349663)>>>0; if(seed%5!==0) continue;
+      var dotx=fx+(seed%37), doty=fy+((seed>>5)%37); ctx.fillStyle=(seed%2)?"rgba(120,150,90,0.10)":"rgba(90,110,70,0.10)";
+      ctx.beginPath(); ctx.arc(dotx-camera.x, doty-camera.y, 2.5, 0, Math.PI*2); ctx.fill(); } }
 
     ctx.textAlign="center";
     Object.keys(ZONES).forEach(function(type){ var z=ZONES[type], sx=z.x-camera.x, sy=z.y-camera.y-z.r+8;
@@ -562,6 +648,14 @@
     groundCoins.forEach(function(c){ var sx=c.x-camera.x, sy=c.y-camera.y; if(sx<-20||sx>w+20||sy<-20||sy>h+20) return;
       ctx.beginPath(); ctx.arc(sx,sy,7,0,Math.PI*2); ctx.fillStyle="#e8c56a"; ctx.fill(); ctx.strokeStyle="#a5842f"; ctx.lineWidth=1.5; ctx.stroke();
       ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.arc(sx-2,sy-2,2,0,Math.PI*2); ctx.fill(); });
+
+    // NPCs (anvil, grandma) with a prompt when you're close
+    Object.keys(NPCS).forEach(function(k){ var n=NPCS[k], sx=n.x-camera.x, sy=n.y-camera.y; if(sx<-40||sx>w+40||sy<-40||sy>h+40) return;
+      var near=Math.hypot(world.player.x-n.x, world.player.y-n.y)<NPC_DIST;
+      if(near){ ctx.strokeStyle="rgba(232,197,106,0.8)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(sx,sy,26,0,Math.PI*2); ctx.stroke(); }
+      ctx.font="30px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(n.emoji, sx, sy); ctx.textBaseline="alphabetic";
+      ctx.fillStyle=near?"#e8c56a":"rgba(176,174,165,0.55)"; ctx.font="12px sans-serif"; ctx.fillText(n.label, sx, sy-26);
+    });
 
     var target=nearestTarget();
     // aim cone
@@ -587,6 +681,10 @@
 
     projectiles.forEach(function(pr){ var px=pr.x-camera.x,py=pr.y-camera.y,tx=pr.tx-camera.x,ty=pr.ty-camera.y,t=1-pr.life/9;
       var cx=px+(tx-px)*t, cy=py+(ty-py)*t; ctx.fillStyle=pr.magic?"#8e6fd6":"#d8b45a"; ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fill(); });
+
+    // AOE magic bursts
+    aoeBursts.forEach(function(a){ ctx.globalAlpha=Math.max(0,a.life/18); ctx.strokeStyle="#8e6fd6"; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(a.x-camera.x, a.y-camera.y, a.r, 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha=1; });
 
     drawPlayer(world.player.x-camera.x, world.player.y-camera.y);
 
@@ -632,6 +730,61 @@
   function closeDModal(){ $("dye-modal").classList.remove("show"); }
   $("dye-close").addEventListener("click", closeDModal);
   $("dye-modal").addEventListener("click", function(e){ if(e.target===this) closeDModal(); });
+
+  // ---------- NPC interaction (anvil, grandma) ----------
+  function interactNPC() {
+    if(menuOpen) return;
+    var p=world.player, near=null;
+    Object.keys(NPCS).forEach(function(k){ if(Math.hypot(p.x-NPCS[k].x, p.y-NPCS[k].y)<NPC_DIST) near=k; });
+    if(near==="anvil") openAnvil();
+    else if(near==="grandma") openQuest();
+    else toast("Nothing here to use.");
+  }
+  function ownedWeapons() {
+    var set={}; Object.keys(STATE.inventory).forEach(function(id){ if(DEFS.items[id]&&DEFS.items[id].type==="weapon") set[id]=1; });
+    if(STATE.equipment.weapon && STATE.equipment.weapon.item) set[STATE.equipment.weapon.item]=1;
+    return Object.keys(set);
+  }
+  function openAnvil() {
+    var ws=ownedWeapons();
+    var html = ws.length ? "" : '<div class="empty">No weapons to upgrade yet.</div>';
+    ws.forEach(function(id){ var it=DEFS.items[id], plus=weaponPlus(id), max=plus>=10;
+      var gold=Math.round(it.value*0.6*(plus+1)), matQty=plus+1, mat=it.up, matName=DEFS.items[mat].name, haveMat=STATE.inventory[mat]||0;
+      var can=!max && STATE.coins>=gold && haveMat>=matQty;
+      html+='<div style="border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:8px">'+
+        '<div style="font-weight:600;font-size:13px">'+esc(it.name)+' <span style="color:var(--gold)">+'+plus+'</span></div>'+
+        (max?'<div style="font-size:12px;color:var(--gold);margin-top:4px">Maxed (+10)</div>':
+          '<div style="font-size:11.5px;color:var(--dim);margin:4px 0 7px">🪙 '+gold+' + '+matQty+'× '+esc(matName)+' <span style="color:'+(haveMat>=matQty?'var(--muted)':'var(--danger)')+'">(have '+haveMat+')</span></div>'+
+          '<button data-up="'+id+'"'+(can?"":" disabled")+' style="padding:6px 12px;border-radius:7px;border:1px solid var(--border);'+(can?'background:var(--accent);color:#1a1508;font-weight:600':'background:var(--panel);color:var(--muted)')+'">Upgrade → +'+(plus+1)+'</button>')+
+        '</div>';
+    });
+    $("anvil-list").innerHTML=html;
+    $("anvil-list").querySelectorAll("[data-up]").forEach(function(b){ b.addEventListener("click",function(){ doUpgrade(b.getAttribute("data-up")); }); });
+    $("anvil-modal").classList.add("show");
+  }
+  function doUpgrade(id){ api("/api/game/upgrade","POST",{item:id}).then(function(r){ if(r.ok){ STATE=r.j.state; renderMenu(); toast("Upgraded to +"+r.j.plus+"! ✨"); openAnvil(); } else toast(r.j.error); }); }
+  $("anvil-close").addEventListener("click", function(){ $("anvil-modal").classList.remove("show"); });
+  $("anvil-modal").addEventListener("click", function(e){ if(e.target===this) this.classList.remove("show"); });
+
+  function openQuest() {
+    api("/api/game/quest").then(function(r){ var q=r.j.quest, cd=r.j.cooldownMs, html;
+      if(q){ if(q.done){ html='<p style="font-size:13px">You did it, dear! Those '+q.need+' '+esc(q.enemyName)+'s won’t bother anyone now.</p><p style="color:var(--gold);font-size:13px">Reward: 🪙 '+q.rewardGold+'</p><button id="q-claim" style="width:100%;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#1a1508;font-weight:600">Claim reward</button>'; }
+        else { html='<p style="font-size:13px">Slay <b>'+q.need+' '+esc(q.enemyName)+'s</b> for me.</p><div class="bar" style="height:8px;background:var(--hp-bg);border-radius:5px;overflow:hidden;margin:6px 0"><div style="height:100%;background:var(--xp);width:'+Math.round(q.have/q.need*100)+'%"></div></div><p style="font-size:12.5px;color:var(--muted)">'+q.have+' / '+q.need+' · reward 🪙 '+q.rewardGold+'</p>'; } }
+      else if(cd>0){ html='<p style="font-size:13px">I need a little rest, dearie. Come back in <b>'+Math.ceil(cd/1000)+'s</b>.</p>'; }
+      else { html='<p style="font-size:13px">Fancy a little task, dear? I’ll match it to your level.</p><button id="q-accept" style="width:100%;padding:9px;border-radius:9px;border:none;background:var(--accent);color:#1a1508;font-weight:600">Accept quest</button>'; }
+      $("quest-body").innerHTML=html;
+      var acc=$("q-accept"); if(acc) acc.addEventListener("click",function(){ api("/api/game/quest/accept","POST").then(function(rr){ if(rr.j&&rr.j.quest) openQuest(); else toast((rr.j&&rr.j.error)||"…"); }); });
+      var cl=$("q-claim"); if(cl) cl.addEventListener("click",function(){ api("/api/game/quest/claim","POST").then(function(rr){ if(rr.ok){ STATE=rr.j.state; renderMenu(); toast('<span class="g">Quest complete!</span> +🪙 '+rr.j.reward, 2800); openQuest(); } else toast(rr.j.error); }); });
+      $("quest-modal").classList.add("show");
+    });
+  }
+  $("quest-close").addEventListener("click", function(){ $("quest-modal").classList.remove("show"); });
+  $("quest-modal").addEventListener("click", function(e){ if(e.target===this) this.classList.remove("show"); });
+
+  $("rebirth").addEventListener("click", function(){
+    if(!confirm("Rebirth to NG+"+((STATE.ngPlus||0)+1)+"?\nYour skill levels reset to 1, but you keep all items, coins and weapon upgrades — and gain +5% damage & +10% xp permanently.")) return;
+    api("/api/game/rebirth","POST").then(function(r){ if(r.ok){ STATE=r.j.state; renderMenu(); toast('<span class="g">✨ Reborn!</span> Welcome to NG+'+r.j.ngPlus, 3200); } else toast(r.j.error); });
+  });
 
   // ---------- world/boss timer ----------
   function pollWorld() {

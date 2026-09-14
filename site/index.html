@@ -99,7 +99,8 @@
         games:       "/x953j1029jx1209x0f28j4f23fq28jc2q938jf.html",
         pi:          "/x963j1029jx1209x0f28j4f23fq28jc2q938jf.html",
         capsule:     "/x973j1029jx1209x0f28j4f23fq28jc2q938jf.html",
-        console:     "/x983j1029jx1209x0f28j4f23fq28jc2q938jf.html"
+        console:     "/x983j1029jx1209x0f28j4f23fq28jc2q938jf.html",
+        rpg:         "/game"
       };
 
       // Used only if the Worker is unreachable/not configured yet, so
@@ -113,6 +114,7 @@
         pi:          { trigger: "pi5",         enabled: true },
         capsule:     { trigger: "capsule",     enabled: true },
         console:     { trigger: "console",     enabled: true },
+        rpg:         { trigger: "rpg",         enabled: true },
         custom: []
       };
 
@@ -140,7 +142,9 @@
         fetch(API_BASE + "/api/config")
           .then(function (r) { return r.json(); })
           .then(function (data) {
-            config = data;
+            // merge so built-in fallback triggers (e.g. rpg) survive even if
+            // the Worker's stored config doesn't list them yet
+            config = Object.assign({}, FALLBACK_CONFIG, data);
             maxTriggerLength = computeMaxLength(config);
           })
           .catch(function (err) {
