@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>if(location.hostname==="admin.oliverbar.net"&&!/^\/admin/.test(location.pathname))location.replace("/admin");</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ULTRA — a fast, tiling browser</title>
 <meta name="description" content="ULTRA is a fast, minimal, tiling web browser. Split your screen into panes, keep hundreds of tabs open without the slowdown, and browse ad- and tracker-free. Free and open source for Windows and macOS.">
@@ -155,6 +156,28 @@
   .count.total .n{color:var(--accent)}
   #hero-count{color:var(--muted);font-variant-numeric:tabular-nums}
 
+  /* feedback */
+  .fb{border-top:1px solid var(--border)}
+  .fb-wrap{display:grid;grid-template-columns:1fr 1.15fr;gap:48px;align-items:start}
+  .fb-form{border:1px solid var(--border-2);border-radius:16px;background:var(--panel);padding:24px}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:10px;padding:3px;gap:3px;background:var(--bg-2);margin-bottom:16px}
+  .seg button{font:inherit;font-size:13.5px;font-weight:500;color:var(--muted);background:none;border:0;padding:7px 14px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--panel-2);color:var(--text);box-shadow:0 0 0 1px var(--border-2)}
+  .fb-form label{display:block;font-size:12.5px;color:var(--dim);margin:0 0 6px;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase}
+  .fb-form textarea,.fb-form input{width:100%;font:inherit;font-size:15px;color:var(--text);background:var(--bg-2);
+    border:1px solid var(--border-2);border-radius:10px;padding:12px 14px;outline:none;transition:border-color .15s}
+  .fb-form textarea{min-height:130px;resize:vertical;line-height:1.5}
+  .fb-form textarea:focus,.fb-form input:focus{border-color:#4a4a52}
+  .fb-row{margin-bottom:14px}
+  .fb-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .fb-status{font-size:13.5px;color:var(--muted)}
+  .fb-status.ok{color:#7fd19b}.fb-status.err{color:#ff8a70}
+  .fb-side p{color:var(--muted);font-size:15.5px;margin:0 0 18px}
+  .fb-side ul{margin:0;padding:0;list-style:none;color:var(--muted);font-size:14.5px}
+  .fb-side li{padding:10px 0;border-top:1px solid var(--border);display:grid;grid-template-columns:64px 1fr;gap:10px}
+  .fb-side li b{color:var(--text);font-weight:600;min-width:64px}
+  @media(max-width:820px){.fb-wrap{grid-template-columns:1fr;gap:28px}}
+
   /* footer */
   footer{border-top:1px solid var(--border);padding:44px 0 56px}
   footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
@@ -174,6 +197,7 @@
       <a href="#features">Features</a>
       <a href="#shortcuts">Shortcuts</a>
       <a href="#download">Download</a>
+      <a href="#feedback">Feedback</a>
       <a href="https://github.com/skhshths/ULTRA/" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
     <div class="spacer"></div>
@@ -331,6 +355,41 @@
       </p>
     </div>
   </section>
+  <section id="feedback" class="fb">
+    <div class="wrap">
+      <div class="fb-wrap">
+        <div class="fb-side">
+          <div class="kicker">Feedback</div>
+          <h2>Tell us what to fix.</h2>
+          <p>Found a bug, missing a feature, or just have thoughts? It goes straight to the person building ULTRA.</p>
+          <ul>
+            <li><b>Bugs</b><span>What happened, and what you expected instead.</span></li>
+            <li><b>Ideas</b><span>What you'd want ULTRA to do next.</span></li>
+            <li><b>Issues</b><span>Prefer public tracking? <a href="https://github.com/skhshths/ULTRA/issues" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline;text-underline-offset:2px">Open one on GitHub</a>.</span></li>
+          </ul>
+        </div>
+        <form class="fb-form" id="fb-form" novalidate>
+          <div class="seg" role="radiogroup" aria-label="Feedback type">
+            <button type="button" data-kind="bug" class="on" role="radio" aria-checked="true">Bug</button>
+            <button type="button" data-kind="idea" role="radio" aria-checked="false">Idea</button>
+            <button type="button" data-kind="other" role="radio" aria-checked="false">Other</button>
+          </div>
+          <div class="fb-row">
+            <label for="fb-msg">Message</label>
+            <textarea id="fb-msg" maxlength="2000" placeholder="Splitting a pane while a video is playing makes it…" required></textarea>
+          </div>
+          <div class="fb-row">
+            <label for="fb-contact">Email or handle <span style="text-transform:none;letter-spacing:0">(optional, if you'd like a reply)</span></label>
+            <input id="fb-contact" maxlength="120" autocomplete="email" placeholder="you@example.com">
+          </div>
+          <div class="fb-foot">
+            <button class="btn btn-primary" type="submit" id="fb-send">Send feedback</button>
+            <span class="fb-status" id="fb-status" role="status"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -395,6 +454,36 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ platform: platform, device: deviceId() })
       }).then(function(r){ return r.json(); }).then(show).catch(function(){});
+    });
+  })();
+</script>
+<script>
+  // Feedback form → Pi backend.
+  (function(){
+    var form=document.getElementById("fb-form"), kind="bug";
+    var status=document.getElementById("fb-status"), send=document.getElementById("fb-send");
+    form.querySelectorAll(".seg button").forEach(function(b){
+      b.addEventListener("click",function(){
+        kind=b.getAttribute("data-kind");
+        form.querySelectorAll(".seg button").forEach(function(x){ var on=x===b; x.classList.toggle("on",on); x.setAttribute("aria-checked",on); });
+      });
+    });
+    function say(t,cls){ status.textContent=t; status.className="fb-status"+(cls?" "+cls:""); }
+    form.addEventListener("submit",function(e){
+      e.preventDefault();
+      var msg=document.getElementById("fb-msg").value.trim();
+      if(msg.length<3){ say("Please write a little more.","err"); return; }
+      var ua=navigator.userAgent||"", platform=/Windows/i.test(ua)?"windows":(/Mac/i.test(ua)?"mac":"other");
+      send.disabled=true; say("Sending…");
+      fetch("https://piapi.oliverbar.net/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({kind:kind,message:msg,contact:document.getElementById("fb-contact").value.trim(),platform:platform})})
+        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+        .then(function(r){
+          send.disabled=false;
+          if(!r.ok){ say(r.j.error||"Couldn't send — try again.","err"); return; }
+          form.reset(); say("Thanks — got it.","ok");
+        })
+        .catch(function(){ send.disabled=false; say("Couldn't reach the server — try again in a bit.","err"); });
     });
   })();
 </script>

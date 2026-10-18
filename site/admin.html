@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>ULTRA · Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0b; --bg-2:#111113; --panel:#141417; --panel-2:#1a1a1e;
+    --border:#242428; --border-2:#2e2e34;
+    --text:#f3f3f4; --muted:#9a9aa2; --dim:#64646c;
+    --accent:#ff5a33; --accent-soft:rgba(255,90,51,.14);
+    --mac:#c9c9d1; --good:#7fd19b; --bad:#ff8a70;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5}
+  button,input{font:inherit}
+  a{color:inherit}
+  .brand{font-weight:800;letter-spacing:.14em;font-size:15px;display:flex;align-items:center;gap:9px}
+  .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  .brand small{font-family:var(--mono);font-weight:500;letter-spacing:.06em;color:var(--dim);font-size:12px}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;padding:8px 14px;border-radius:9px;
+    border:1px solid var(--border-2);background:transparent;color:var(--text);cursor:pointer;transition:.15s;white-space:nowrap}
+  .btn:hover{background:var(--panel);border-color:#44444c}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#120602}
+  .btn-primary:hover{background:#ff6b48;border-color:#ff6b48}
+  .btn-sm{padding:5px 10px;font-size:12.5px;font-weight:500}
+  .btn-danger:hover{border-color:rgba(255,138,112,.5);color:var(--bad);background:rgba(255,138,112,.06)}
+
+  /* gate */
+  #gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
+  #gate::before{content:"";position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:760px;height:520px;
+    background:radial-gradient(ellipse at center,rgba(255,90,51,.12),transparent 62%);pointer-events:none}
+  .gate-box{position:relative;width:100%;max-width:380px}
+  .gate-box .brand{justify-content:center;margin-bottom:28px}
+  .gate-card{border:1px solid var(--border-2);background:var(--panel);border-radius:16px;padding:26px}
+  .gate-card h1{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}
+  .gate-card p{color:var(--muted);font-size:14px;margin:0 0 20px}
+  .gate-card input{width:100%;font-family:var(--mono);font-size:14px;color:var(--text);background:var(--bg-2);
+    border:1px solid var(--border-2);border-radius:10px;padding:12px 14px;outline:none;margin-bottom:12px}
+  .gate-card input:focus{border-color:#4a4a52}
+  .gate-card .btn{width:100%;justify-content:center;padding:11px}
+  .gate-err{color:var(--bad);font-size:13px;min-height:20px;margin-top:10px;text-align:center}
+
+  /* app */
+  #app{display:none}
+  header{position:sticky;top:0;z-index:20;background:rgba(10,10,11,.8);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .bar{max-width:1180px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;gap:14px}
+  .bar .spacer{flex:1}
+  .stamp{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  main{max-width:1180px;margin:0 auto;padding:28px 24px 64px}
+  h2{font-size:15px;margin:0;letter-spacing:-.005em}
+  .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+
+  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px}
+  .tile{background:var(--bg-2);padding:18px 18px 16px}
+  .tile .n{font-size:28px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px}
+  .tile .n.accent{color:var(--accent)}
+  .tile .s{font-size:12px;color:var(--dim);margin-top:2px}
+  @media(max-width:980px){.tiles{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:540px){.tiles{grid-template-columns:repeat(2,1fr)}}
+
+  .row{display:grid;grid-template-columns:1.7fr 1fr;gap:20px;margin-bottom:20px}
+  @media(max-width:980px){.row{grid-template-columns:1fr}}
+  .card{border:1px solid var(--border);border-radius:14px;background:var(--bg-2);padding:20px}
+  .card-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .card-head .spacer{flex:1}
+  .legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+  #chart{position:relative}
+  #chart svg{display:block;width:100%;height:300px}
+  #chart .tip{position:absolute;pointer-events:none;background:var(--panel-2);border:1px solid var(--border-2);border-radius:8px;
+    padding:7px 10px;font-size:12px;white-space:nowrap;transform:translate(-50%,-100%);margin-top:-8px;display:none}
+  #chart .tip b{display:block;font-size:12.5px;margin-bottom:2px}
+
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border);font-size:13.5px}
+  .kv:first-of-type{border-top:0}
+  .kv span{color:var(--muted)}
+  .kv b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-family:var(--mono);color:var(--muted)}
+  .pill i{width:7px;height:7px;border-radius:50%;background:var(--dim);display:inline-block}
+  .pill.up i{background:var(--good);box-shadow:0 0 8px var(--good)}
+  .pill.down i{background:var(--bad)}
+
+  /* feedback */
+  .filters{display:inline-flex;border:1px solid var(--border-2);border-radius:10px;padding:3px;gap:3px;background:var(--bg)}
+  .filters button{font-size:12.5px;font-weight:500;color:var(--muted);background:none;border:0;padding:6px 11px;border-radius:7px;cursor:pointer}
+  .filters button.on{background:var(--panel-2);color:var(--text);box-shadow:0 0 0 1px var(--border-2)}
+  .filters button .c{font-family:var(--mono);color:var(--dim);margin-left:4px}
+  .fb-list{display:flex;flex-direction:column;gap:10px}
+  .fb{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px 16px;transition:border-color .15s}
+  .fb.unread{border-color:var(--border-2);box-shadow:inset 3px 0 0 var(--accent)}
+  .fb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .tag{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:6px;border:1px solid var(--border-2);color:var(--muted)}
+  .tag.bug{color:var(--bad);border-color:rgba(255,138,112,.35)}
+  .tag.idea{color:var(--good);border-color:rgba(127,209,155,.35)}
+  .meta{font-size:12.5px;color:var(--dim)}
+  .fb-top .spacer{flex:1}
+  .fb-msg{font-size:14.5px;white-space:pre-wrap;word-break:break-word;margin:0}
+  .fb-contact{margin-top:8px;font-size:13px;color:var(--muted)}
+  .fb-contact a{color:var(--text);text-underline-offset:2px}
+  .fb-actions{display:flex;gap:6px}
+  .empty{color:var(--dim);font-size:14px;text-align:center;padding:36px 0}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--border-2);
+    border-radius:10px;padding:10px 16px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-box">
+    <div class="brand"><span class="dot"></span>ULTRA <small>ADMIN</small></div>
+    <form class="gate-card" id="gate-form" autocomplete="off">
+      <h1>Admin access</h1>
+      <p>Enter the admin password to continue.</p>
+      <input type="password" id="gate-pw" placeholder="password" spellcheck="false" autocomplete="current-password" autofocus>
+      <button class="btn btn-primary" type="submit" id="gate-go">Unlock</button>
+      <div class="gate-err" id="gate-err" role="alert"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="bar">
+      <div class="brand"><span class="dot"></span>ULTRA <small>ADMIN</small></div>
+      <span class="spacer"></span>
+      <span class="stamp" id="stamp">—</span>
+      <a class="btn btn-sm" href="https://oliverbar.net" target="_blank" rel="noopener">View site ↗</a>
+      <button class="btn btn-sm" id="refresh">Refresh</button>
+      <button class="btn btn-sm" id="lock">Lock</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="tiles">
+      <div class="tile"><div class="kicker">Total downloads</div><div class="n accent" id="t-total">—</div><div class="s">unique devices</div></div>
+      <div class="tile"><div class="kicker">Windows</div><div class="n" id="t-win">—</div><div class="s" id="t-win-s">&nbsp;</div></div>
+      <div class="tile"><div class="kicker">macOS</div><div class="n" id="t-mac">—</div><div class="s" id="t-mac-s">&nbsp;</div></div>
+      <div class="tile"><div class="kicker">Last 24 hours</div><div class="n" id="t-24">—</div><div class="s">downloads</div></div>
+      <div class="tile"><div class="kicker">Last 7 days</div><div class="n" id="t-7">—</div><div class="s">downloads</div></div>
+      <div class="tile"><div class="kicker">Feedback</div><div class="n" id="t-fb">—</div><div class="s" id="t-fb-s">&nbsp;</div></div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div class="card-head">
+          <h2>Downloads · last 30 days</h2>
+          <span class="spacer"></span>
+          <div class="legend"><span><i style="background:var(--accent)"></i>Windows</span><span><i style="background:var(--mac)"></i>macOS</span></div>
+        </div>
+        <div id="chart"><svg id="chart-svg" role="img" aria-label="Daily downloads, last 30 days"></svg><div class="tip" id="tip"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>GitHub</h2><span class="spacer"></span><a class="btn btn-sm" href="https://github.com/skhshths/ULTRA/releases" target="_blank" rel="noopener">Releases ↗</a></div>
+        <div id="gh"><div class="empty" style="padding:20px 0">Loading…</div></div>
+        <div class="card-head" style="margin:18px 0 6px"><h2>Services</h2></div>
+        <div class="kv"><span>Site · oliverbar.net</span><b><span class="pill up"><i></i>up</span></b></div>
+        <div class="kv"><span>Pi backend · piapi</span><b id="svc-pi"><span class="pill"><i></i>checking</span></b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Feedback</h2>
+        <div class="filters" id="filters">
+          <button data-f="all" class="on">All<span class="c" id="c-all"></span></button>
+          <button data-f="unread">Unread<span class="c" id="c-unread"></span></button>
+          <button data-f="bug">Bugs<span class="c" id="c-bug"></span></button>
+          <button data-f="idea">Ideas<span class="c" id="c-idea"></span></button>
+          <button data-f="other">Other<span class="c" id="c-other"></span></button>
+        </div>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" id="all-read">Mark all read</button>
+        <button class="btn btn-sm" id="export">Export CSV</button>
+      </div>
+      <div class="fb-list" id="fb-list"><div class="empty">Loading…</div></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var API = "https://piapi.oliverbar.net";
+  var KEY = "ultraAdminPw";
+  var pw = "", feedback = [], filter = "all", overview = null;
+
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ var d=document.createElement("div"); d.textContent = s==null ? "" : String(s); return d.innerHTML; }
+  function fmt(n){ return Number(n||0).toLocaleString(); }
+  var tt; function toast(t){ var e=$("toast"); e.textContent=t; e.classList.add("show"); clearTimeout(tt); tt=setTimeout(function(){ e.classList.remove("show"); },1800); }
+  function ago(ts){
+    var s=Math.round((Date.now()-ts)/1000);
+    if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago";
+    if(s<86400*7) return Math.floor(s/86400)+"d ago";
+    return new Date(ts).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+  }
+  function api(path, body){
+    return fetch(API+path, {
+      method: body ? "POST" : "GET", cache: "no-store",
+      headers: Object.assign({"X-Ultra-Admin": pw}, body ? {"Content-Type":"application/json"} : {}),
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function(r){
+      if(r.status===401){ var e=new Error("auth"); e.auth=true; throw e; }
+      return r.json();
+    });
+  }
+
+  // ---------- gate ----------
+  function tryUnlock(candidate, silent){
+    pw = candidate;
+    return api("/api/ultra-admin/overview").then(function(o){
+      try { sessionStorage.setItem(KEY, pw); } catch(e) {}
+      $("gate").style.display="none"; $("app").style.display="block";
+      overview=o; renderOverview(); loadFeedback(); loadGitHub(); checkPi();
+    }).catch(function(e){
+      pw=""; try { sessionStorage.removeItem(KEY); } catch(x) {}
+      if(!silent) $("gate-err").textContent = e.auth ? "Wrong password." : "Can't reach the backend right now.";
+    });
+  }
+  $("gate-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v=$("gate-pw").value.trim(); if(!v) return;
+    $("gate-err").textContent=""; $("gate-go").disabled=true;
+    tryUnlock(v).then(function(){ $("gate-go").disabled=false; $("gate-pw").value=""; });
+  });
+  $("lock").addEventListener("click", function(){ try { sessionStorage.removeItem(KEY); } catch(e) {} location.reload(); });
+
+  // ---------- overview ----------
+  function renderOverview(){
+    var o=overview, d=o.downloads;
+    $("t-total").textContent=fmt(d.total); $("t-win").textContent=fmt(d.windows); $("t-mac").textContent=fmt(d.mac);
+    $("t-win-s").textContent = d.total ? Math.round(d.windows/d.total*100)+"% of total" : " ";
+    $("t-mac-s").textContent = d.total ? Math.round(d.mac/d.total*100)+"% of total" : " ";
+    $("t-24").textContent=fmt(o.last24h); $("t-7").textContent=fmt(o.last7d);
+    $("t-fb").textContent=fmt(o.feedback.total);
+    $("t-fb-s").textContent = o.feedback.unread ? o.feedback.unread+" unread" : "all read";
+    $("stamp").textContent = "updated "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+    drawChart(o.daily);
+  }
+  function refreshAll(){
+    api("/api/ultra-admin/overview").then(function(o){ overview=o; renderOverview(); }).catch(onAuthFail);
+    loadFeedback(); checkPi();
+  }
+  function onAuthFail(e){ if(e && e.auth){ try { sessionStorage.removeItem(KEY); } catch(x) {} location.reload(); } }
+  $("refresh").addEventListener("click", function(){ refreshAll(); loadGitHub(); toast("Refreshed"); });
+  setInterval(function(){ if(pw && !document.hidden) refreshAll(); }, 60000);
+
+  // stacked daily bars (Windows below, macOS on top)
+  function drawChart(days){
+    var svg=$("chart-svg"), W=svg.clientWidth||700, H=300, padL=30, padB=22, padT=10;
+    var max=Math.max(1, Math.max.apply(null, days.map(function(d){ return d.windows+d.mac; })));
+    var step=Math.max(1, Math.ceil(max/4)), top=step*4;
+    var iw=W-padL-6, ih=H-padB-padT, bw=iw/days.length, gap=Math.min(4, bw*.28);
+    var out='';
+    for(var g=0; g<=4; g++){
+      var y=padT+ih-(g*step/top)*ih;
+      out+='<line x1="'+padL+'" x2="'+(W-6)+'" y1="'+y+'" y2="'+y+'" stroke="#242428" stroke-width="1"/>';
+      out+='<text x="'+(padL-8)+'" y="'+(y+4)+'" fill="#64646c" font-size="10.5" font-family="JetBrains Mono,monospace" text-anchor="end">'+(g*step)+'</text>';
+    }
+    days.forEach(function(d,i){
+      var x=padL+i*bw+gap/2, w=bw-gap;
+      var hw=(d.windows/top)*ih, hm=(d.mac/top)*ih;
+      var yw=padT+ih-hw, ym=yw-hm;
+      out+='<rect x="'+x+'" y="'+padT+'" width="'+w+'" height="'+ih+'" fill="transparent" data-i="'+i+'"/>';
+      if(hw>0) out+='<rect x="'+x+'" y="'+yw+'" width="'+w+'" height="'+hw+'" rx="2" fill="#ff5a33" pointer-events="none"/>';
+      if(hm>0) out+='<rect x="'+x+'" y="'+ym+'" width="'+w+'" height="'+Math.max(0,hm-(hw>0?1:0))+'" rx="2" fill="#c9c9d1" pointer-events="none"/>';
+      if(i%5===4 || i===days.length-1){
+        var lbl=new Date(d.day).toLocaleDateString(undefined,{month:"short",day:"numeric"});
+        out+='<text x="'+(x+w/2)+'" y="'+(H-6)+'" fill="#64646c" font-size="10.5" text-anchor="middle">'+lbl+'</text>';
+      }
+    });
+    svg.setAttribute("viewBox","0 0 "+W+" "+H); svg.innerHTML=out;
+    var tip=$("tip");
+    svg.querySelectorAll("rect[data-i]").forEach(function(r){
+      r.addEventListener("mouseenter", function(){
+        var d=days[+r.getAttribute("data-i")];
+        tip.innerHTML='<b>'+new Date(d.day).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})+'</b>'+
+          'Windows '+d.windows+' · macOS '+d.mac;
+        var bx=+r.getAttribute("x")+(+r.getAttribute("width"))/2;
+        tip.style.left=(bx/W*svg.clientWidth)+"px"; tip.style.top=(padT+ih-((d.windows+d.mac)/top)*ih)/H*svg.clientHeight+"px";
+        tip.style.display="block";
+      });
+      r.addEventListener("mouseleave", function(){ tip.style.display="none"; });
+    });
+  }
+  window.addEventListener("resize", function(){ if(overview) drawChart(overview.daily); });
+
+  // ---------- GitHub (public API, no auth) ----------
+  function loadGitHub(){
+    Promise.all([
+      fetch("https://api.github.com/repos/skhshths/ULTRA").then(function(r){ return r.json(); }),
+      fetch("https://api.github.com/repos/skhshths/ULTRA/releases?per_page=30").then(function(r){ return r.json(); })
+    ]).then(function(res){
+      var repo=res[0], rels=Array.isArray(res[1]) ? res[1] : [];
+      var latest=rels[0], allTime=0;
+      rels.forEach(function(r){ (r.assets||[]).forEach(function(a){ allTime+=a.download_count||0; }); });
+      var html='';
+      if(latest){
+        html+='<div class="kv"><span>Latest release</span><b><a href="'+esc(latest.html_url)+'" target="_blank" rel="noopener">'+esc(latest.name||latest.tag_name)+'</a></b></div>';
+        html+='<div class="kv"><span>Published</span><b>'+ago(new Date(latest.published_at).getTime())+'</b></div>';
+        (latest.assets||[]).forEach(function(a){
+          html+='<div class="kv"><span style="font-family:var(--mono);font-size:12.5px">'+esc(a.name)+'</span><b>'+fmt(a.download_count)+'</b></div>';
+        });
+      }
+      html+='<div class="kv"><span>All-time GitHub downloads</span><b>'+fmt(allTime)+'</b></div>';
+      if(repo && repo.stargazers_count!=null){
+        html+='<div class="kv"><span>Stars · open issues</span><b>'+fmt(repo.stargazers_count)+' · '+fmt(repo.open_issues_count)+'</b></div>';
+      }
+      $("gh").innerHTML=html;
+    }).catch(function(){ $("gh").innerHTML='<div class="empty" style="padding:20px 0">GitHub didn’t respond.</div>'; });
+  }
+
+  function checkPi(){
+    var t0=performance.now();
+    fetch(API+"/health",{cache:"no-store"}).then(function(r){
+      if(!r.ok) throw 0;
+      $("svc-pi").innerHTML='<span class="pill up"><i></i>up · '+Math.round(performance.now()-t0)+'ms</span>';
+    }).catch(function(){ $("svc-pi").innerHTML='<span class="pill down"><i></i>down</span>'; });
+  }
+
+  // ---------- feedback ----------
+  function loadFeedback(){
+    api("/api/ultra-admin/feedback").then(function(list){ feedback=list; renderFeedback(); }).catch(onAuthFail);
+  }
+  function renderFeedback(){
+    var counts={all:feedback.length, unread:0, bug:0, idea:0, other:0};
+    feedback.forEach(function(f){ if(!f.read) counts.unread++; counts[f.kind]=(counts[f.kind]||0)+1; });
+    Object.keys(counts).forEach(function(k){ var el=$("c-"+k); if(el) el.textContent=counts[k]; });
+    var rows=feedback.filter(function(f){
+      if(filter==="all") return true; if(filter==="unread") return !f.read; return f.kind===filter;
+    });
+    if(!rows.length){ $("fb-list").innerHTML='<div class="empty">'+(feedback.length?"Nothing in this filter.":"No feedback yet.")+'</div>'; return; }
+    $("fb-list").innerHTML=rows.map(function(f){
+      var contact="";
+      if(f.contact){
+        var isMail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.contact);
+        contact='<div class="fb-contact">Reply to: '+(isMail?'<a href="mailto:'+esc(f.contact)+'">'+esc(f.contact)+'</a>':esc(f.contact))+'</div>';
+      }
+      return '<div class="fb'+(f.read?'':' unread')+'" data-id="'+esc(f.id)+'">'+
+        '<div class="fb-top"><span class="tag '+esc(f.kind)+'">'+esc(f.kind)+'</span>'+
+        '<span class="meta" title="'+esc(new Date(f.ts).toLocaleString())+'">'+ago(f.ts)+' · '+esc(f.platform)+'</span>'+
+        '<span class="spacer"></span><div class="fb-actions">'+
+        '<button class="btn btn-sm" data-act="read">'+(f.read?'Mark unread':'Mark read')+'</button>'+
+        '<button class="btn btn-sm btn-danger" data-act="del">Delete</button></div></div>'+
+        '<p class="fb-msg">'+esc(f.message)+'</p>'+contact+'</div>';
+    }).join("");
+  }
+  $("fb-list").addEventListener("click", function(e){
+    var b=e.target.closest("button[data-act]"); if(!b) return;
+    var card=b.closest(".fb"), id=card.getAttribute("data-id");
+    var f=feedback.find(function(x){ return x.id===id; }); if(!f) return;
+    if(b.getAttribute("data-act")==="read"){
+      var next=!f.read;
+      api("/api/ultra-admin/feedback/read",{id:id, read:next}).then(function(){ f.read=next?1:0; renderFeedback(); bumpUnread(); }).catch(onAuthFail);
+    } else {
+      if(!confirm("Delete this feedback? This can't be undone.")) return;
+      api("/api/ultra-admin/feedback/delete",{id:id}).then(function(){
+        feedback=feedback.filter(function(x){ return x.id!==id; }); renderFeedback(); bumpUnread(); toast("Deleted");
+      }).catch(onAuthFail);
+    }
+  });
+  function bumpUnread(){
+    if(!overview) return;
+    overview.feedback.total=feedback.length;
+    overview.feedback.unread=feedback.filter(function(f){ return !f.read; }).length;
+    renderOverview();
+  }
+  $("filters").addEventListener("click", function(e){
+    var b=e.target.closest("button[data-f]"); if(!b) return;
+    filter=b.getAttribute("data-f");
+    this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("on", x===b); });
+    renderFeedback();
+  });
+  $("all-read").addEventListener("click", function(){
+    api("/api/ultra-admin/feedback/read",{id:"*"}).then(function(){
+      feedback.forEach(function(f){ f.read=1; }); renderFeedback(); bumpUnread(); toast("All marked read");
+    }).catch(onAuthFail);
+  });
+  $("export").addEventListener("click", function(){
+    if(!feedback.length){ toast("Nothing to export"); return; }
+    var q=function(v){ return '"'+String(v==null?"":v).replace(/"/g,'""')+'"'; };
+    var csv="time,type,platform,contact,read,message\n"+feedback.map(function(f){
+      return [new Date(f.ts).toISOString(), f.kind, f.platform, f.contact, f.read?"yes":"no", f.message].map(q).join(",");
+    }).join("\n");
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    a.download="ultra-feedback-"+new Date().toISOString().slice(0,10)+".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  // ---------- boot ----------
+  var saved=""; try { saved=sessionStorage.getItem(KEY)||""; } catch(e) {}
+  if(saved) tryUnlock(saved, true);
+})();
+</script>
+</body>
+</html>
