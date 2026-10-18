@@ -160,6 +160,9 @@
   .hd-foot label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;margin-right:auto}
   .hd-foot input{accent-color:var(--accent)}
   .hd-dirty{font-size:12px;color:#e8c56a}
+  .hd-notice{border:1px solid rgba(232,197,106,.4);background:rgba(232,197,106,.07);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--muted);line-height:1.55}
+  .hd-notice b{color:#e8c56a}
+  .hd-notice code{display:block;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 9px;word-break:break-all}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--border-2);
     border-radius:10px;padding:10px 16px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
@@ -254,8 +257,10 @@
         </div>
         <div class="hd-edit">
           <h3>Options people can pick</h3>
+          <div class="hd-notice" id="hd-notice" hidden></div>
           <div id="hd-rows"></div>
           <button class="btn btn-sm" id="hd-add" type="button">+ Add option</button>
+          <button class="btn btn-sm" id="hd-reset" type="button">Reset to defaults</button>
           <div class="hd-foot">
             <label><input type="checkbox" id="hd-other"> Allow “Other” with a text box</label>
             <span class="hd-dirty" id="hd-dirty" hidden>Unsaved changes</span>
@@ -310,6 +315,12 @@
       body: body ? JSON.stringify(body) : undefined
     }).then(function(r){
       if(r.status===401){ var e=new Error("auth"); e.auth=true; throw e; }
+      if(!r.ok){
+        return r.text().then(function(t){
+          var msg=""; try { msg=JSON.parse(t).error||""; } catch(x) {}
+          var err=new Error(msg || ("HTTP "+r.status)); err.status=r.status; throw err;
+        });
+      }
       return r.json();
     });
   }
@@ -507,13 +518,37 @@
 
 
   // ---------- where did you hear about us ----------
-  var hdOpts = [], hdDirty = false;
+  var hdOpts = [], hdDirty = false, hdOutdated = false;
+  // Same list the Pi ships with; used to pre-fill the editor if the Pi can't be reached.
+  var HD_DEFAULTS = { allowOther: true, options: [
+    {id:"friend",label:"A friend or coworker"}, {id:"search",label:"Search (Google, Bing\u2026)"}, {id:"youtube",label:"YouTube"},
+    {id:"social",label:"TikTok / Instagram / X"}, {id:"reddit",label:"Reddit"}, {id:"discord",label:"Discord"},
+    {id:"hackernews",label:"Hacker News"}, {id:"github",label:"GitHub"}, {id:"article",label:"A blog, article or newsletter"} ] };
+  var PI_UPDATE = "cd ~/misc/pi-api && git pull && sudo systemctl restart pi-api";
+  function hdNotice(html){ var n=$("hd-notice"); if(!html){ n.hidden=true; n.innerHTML=""; return; } n.hidden=false; n.innerHTML=html; }
   function loadHeard(){
     api("/api/ultra-admin/heard").then(function(d){
+      hdOutdated = false; hdNotice("");
+      if(d.defaults) HD_DEFAULTS = d.defaults;
       if(!hdDirty){ hdOpts = d.config.options.map(function(o){ return {id:o.id, label:o.label}; }); $("hd-other").checked = !!d.config.allowOther; renderHdEditor(); }
       renderHdResults(d);
-    }).catch(onAuthFail);
+    }).catch(function(err){
+      if(err && err.auth) return onAuthFail(err);
+      if(err && err.status === 404){
+        hdOutdated = true;
+        hdNotice('<b>Your Pi doesn\u2019t have this feature yet,</b> so options can\u2019t be saved. The defaults below are what visitors will see once it\u2019s updated. Run this on the Pi:<code>'+esc(PI_UPDATE)+'</code>');
+        $("hd-bars").innerHTML = '<div class="empty" style="padding:14px 0">Results will show here once the Pi is updated.</div>';
+      } else {
+        hdNotice('<b>Couldn\u2019t reach the Pi</b> ('+esc(err && err.message || "network error")+'). Showing the defaults for now.');
+      }
+      if(!hdDirty && !hdOpts.length){ hdOpts = HD_DEFAULTS.options.map(function(o){ return {id:o.id, label:o.label}; }); $("hd-other").checked = HD_DEFAULTS.allowOther; renderHdEditor(); }
+    });
   }
+  $("hd-reset").addEventListener("click", function(){
+    if(!confirm("Replace the current options with the defaults? Votes for options you keep are kept; others are marked retired.")) return;
+    hdOpts = HD_DEFAULTS.options.map(function(o){ return {id:o.id, label:o.label}; });
+    $("hd-other").checked = HD_DEFAULTS.allowOther; dirty(); renderHdEditor();
+  });
   function renderHdResults(d){
     $("hd-total").textContent = d.total ? fmt(d.total)+" answers" : "";
     var rows = d.results.slice().sort(function(a,b){ return b.count-a.count || (a.retired?1:0)-(b.retired?1:0); });
@@ -571,7 +606,16 @@
       $("hd-save").disabled = false;
       hdDirty = false; hdOpts = d.config.options.map(function(o){ return {id:o.id, label:o.label}; });
       renderHdEditor(); loadHeard(); toast("Options saved — live on the site now");
-    }).catch(function(err){ $("hd-save").disabled = false; onAuthFail(err); toast("Couldn’t save"); });
+    }).catch(function(err){
+      $("hd-save").disabled = false;
+      if(err && err.auth) return onAuthFail(err);
+      if(err && err.status === 404){
+        hdNotice('<b>Not saved: your Pi doesn\u2019t have this feature yet.</b> Run this on the Pi, then press Save again:<code>'+esc(PI_UPDATE)+'</code>');
+        toast("Not saved \u2014 update the Pi first");
+      } else {
+        toast("Couldn\u2019t save: "+((err && err.message) || "network error"));
+      }
+    });
   });
 
   function loadFeedback(){
