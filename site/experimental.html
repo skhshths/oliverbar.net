@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ULTRA Experimental — get the newest build first</title>
+<meta name="description" content="ULTRA Experimental is the invite-only early build of ULTRA: fixes and features land here first, with new builds several times a day.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0b; --bg-2:#111113; --panel:#141417; --panel-2:#1a1a1e;
+    --border:#242428; --border-2:#2e2e34;
+    --text:#f3f3f4; --muted:#9a9aa2; --dim:#64646c;
+    --accent:#ff5a33; --accent-dim:#c7441f;
+    --exp:#b98cff; --exp-soft:rgba(185,140,255,.12);
+    --good:#7fd19b; --bad:#ff8a70;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --max:1120px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  button,input{font:inherit}
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+  ::selection{background:var(--exp-soft);color:#fff}
+
+  header{position:sticky;top:0;z-index:50;background:rgba(10,10,11,.72);backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--border)}
+  nav{display:flex;align-items:center;gap:22px;height:62px;max-width:var(--max);margin:0 auto;padding:0 24px}
+  .brand{font-weight:800;letter-spacing:.14em;font-size:15px;display:flex;align-items:center;gap:9px}
+  .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  .brand .tag{font-family:var(--mono);font-weight:500;letter-spacing:.06em;font-size:11.5px;color:var(--exp);
+    border:1px solid rgba(185,140,255,.35);border-radius:999px;padding:2px 8px}
+  nav .spacer{flex:1}
+  nav .lk{color:var(--muted);font-size:14px;font-weight:500;transition:color .15s}
+  nav .lk:hover{color:var(--text)}
+  .btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:14px;padding:10px 18px;border-radius:10px;
+    border:1px solid transparent;cursor:pointer;transition:.15s;white-space:nowrap}
+  .btn svg{width:16px;height:16px}
+  .btn-exp{background:var(--exp);color:#140b22;border-color:var(--exp)}
+  .btn-exp:hover{background:#c8a3ff;box-shadow:0 8px 30px -10px var(--exp)}
+  .btn-ghost{background:transparent;border-color:var(--border-2);color:var(--text)}
+  .btn-ghost:hover{border-color:#44444c;background:var(--panel)}
+  .btn[disabled]{opacity:.55;cursor:default}
+  @media(max-width:560px){nav .hide-sm{display:none}}
+
+  .hero{position:relative;padding:84px 0 30px;overflow:hidden}
+  .hero::before{content:"";position:absolute;top:-240px;left:50%;transform:translateX(-50%);width:960px;height:640px;
+    background:radial-gradient(ellipse at 40% 50%,rgba(185,140,255,.15),transparent 60%),radial-gradient(ellipse at 70% 40%,rgba(255,90,51,.08),transparent 55%);
+    filter:blur(10px);pointer-events:none}
+  .hero .wrap{position:relative;display:grid;grid-template-columns:1.15fr 1fr;gap:56px;align-items:center}
+  @media(max-width:920px){.hero .wrap{grid-template-columns:1fr;gap:40px}}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;color:var(--muted);
+    border:1px solid var(--border-2);background:var(--panel);padding:6px 13px;border-radius:999px;margin-bottom:24px}
+  .eyebrow b{color:var(--exp);font-weight:500}
+  h1{font-size:clamp(38px,6.2vw,68px);line-height:1.03;letter-spacing:-.03em;font-weight:800;margin:0 0 20px}
+  h1 .g{color:var(--dim)}
+  .sub{font-size:clamp(16px,2vw,19px);color:var(--muted);max-width:520px;margin:0;line-height:1.55}
+  .back{display:inline-flex;margin-top:22px;font-size:14px;color:var(--muted)}
+  .back:hover{color:var(--text)}
+
+  /* key / download card */
+  .gate{border:1px solid var(--border-2);border-radius:18px;background:linear-gradient(180deg,#16151b,#111014);padding:26px;
+    box-shadow:0 40px 100px -50px rgba(185,140,255,.35)}
+  .gate h2{font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+  .gate .lead{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .keyrow{display:flex;gap:8px}
+  .keyrow input{flex:1;min-width:0;font-family:var(--mono);font-size:14px;letter-spacing:.02em;color:var(--text);background:var(--bg-2);
+    border:1px solid var(--border-2);border-radius:10px;padding:12px 14px;outline:none;transition:border-color .15s}
+  .keyrow input:focus{border-color:rgba(185,140,255,.55)}
+  .msg{min-height:20px;font-size:13px;margin-top:10px;color:var(--muted)}
+  .msg.err{color:var(--bad)} .msg.ok{color:var(--good)}
+  .where{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--dim);line-height:1.6}
+  .where code{font-family:var(--mono);color:var(--muted);background:var(--panel-2);border:1px solid var(--border);padding:1px 6px;border-radius:5px}
+  .where a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+
+  .unlocked{display:none}
+  .gate.open .locked{display:none}
+  .gate.open .unlocked{display:block}
+  .build{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--muted);margin-bottom:16px}
+  .build b{color:var(--text);font-weight:600}
+  .build .live{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good)}
+  .dl{display:flex;align-items:center;gap:14px;border:1px solid var(--border-2);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--bg-2)}
+  .dl svg.os{width:22px;height:22px;color:var(--muted);flex-shrink:0}
+  .dl .t{flex:1;min-width:0}
+  .dl .t b{display:block;font-size:15px;font-weight:600}
+  .dl .t span{font-size:12.5px;color:var(--dim);font-family:var(--mono)}
+  .dl .btn{padding:9px 15px}
+  .relock{background:none;border:0;color:var(--dim);font-size:12.5px;cursor:pointer;padding:0;margin-top:6px;text-decoration:underline;text-underline-offset:2px}
+  .relock:hover{color:var(--muted)}
+
+  section{padding:72px 0}
+  .kicker{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;color:var(--exp);text-transform:uppercase;margin-bottom:14px}
+  h3.sec{font-size:clamp(28px,4vw,40px);letter-spacing:-.025em;font-weight:800;margin:0 0 14px;line-height:1.1}
+  .sec-lead{color:var(--muted);font-size:16.5px;margin:0 0 40px;max-width:600px}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+  .pro{background:var(--bg);padding:28px 24px;transition:background .2s}
+  .pro:hover{background:var(--panel)}
+  .pro .ic{width:38px;height:38px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;margin-bottom:16px;color:var(--exp)}
+  .pro .ic svg{width:19px;height:19px}
+  .pro h4{font-size:17px;font-weight:600;margin:0 0 7px;letter-spacing:-.01em}
+  .pro p{color:var(--muted);font-size:14.5px;margin:0;line-height:1.55}
+  @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+
+  .compare{border:1px solid var(--border);border-radius:16px;overflow:hidden}
+  .crow{display:grid;grid-template-columns:1.4fr 1fr 1fr;border-top:1px solid var(--border)}
+  .crow:first-child{border-top:0;background:var(--bg-2)}
+  .crow > div{padding:14px 18px;font-size:14.5px;color:var(--muted)}
+  .crow > div:first-child{color:var(--text)}
+  .crow.head > div{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim)}
+  .crow .e{color:var(--text)}
+  .crow .e b{color:var(--exp);font-weight:600}
+  @media(max-width:620px){.crow{grid-template-columns:1.2fr 1fr 1fr}.crow > div{padding:12px;font-size:13.5px}}
+
+  .caveat{display:grid;grid-template-columns:auto 1fr;gap:18px;border:1px solid var(--border);border-radius:16px;background:var(--bg-2);padding:24px}
+  .caveat .ic{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,138,112,.3);color:var(--bad);display:flex;align-items:center;justify-content:center}
+  .caveat .ic svg{width:19px;height:19px}
+  .caveat h4{margin:0 0 8px;font-size:17px}
+  .caveat ul{margin:0;padding-left:18px;color:var(--muted);font-size:14.5px;line-height:1.75}
+
+  footer{border-top:1px solid var(--border);padding:40px 0 52px}
+  footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  footer .fl{display:flex;gap:22px;margin-left:auto;flex-wrap:wrap}
+  footer a{color:var(--muted);font-size:14px} footer a:hover{color:var(--text)}
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a class="brand" href="/"><span class="dot"></span>ULTRA <span class="tag">EXPERIMENTAL</span></a>
+    <span class="spacer"></span>
+    <a class="lk hide-sm" href="#why">Why experimental</a>
+    <a class="lk" href="/">Stable version →</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <div class="eyebrow"><b>&#9679;</b> Invite only · new builds several times a day</div>
+        <h1>Tomorrow's ULTRA, <span class="g">today.</span></h1>
+        <p class="sub">ULTRA Experimental is the early build. Fixes and features land here first, it updates itself in place, and it runs alongside your regular ULTRA without touching it.</p>
+        <a class="back" href="/">← Prefer stable? Get regular ULTRA</a>
+      </div>
+
+      <div class="gate" id="gate">
+        <form class="locked" id="key-form" autocomplete="off">
+          <h2>Enter your download key</h2>
+          <p class="lead">Experimental is for invited testers. Your key unlocks both downloads.</p>
+          <div class="keyrow">
+            <input id="key" type="password" placeholder="32-character key" spellcheck="false" maxlength="64" aria-label="Download key">
+            <button class="btn btn-exp" type="submit" id="unlock">Unlock</button>
+          </div>
+          <div class="msg" id="msg" role="status"></div>
+          <div class="where">Where's the key? It's in <code>EXPERIMENTAL_KEY.txt</code> in the private
+            <a href="https://github.com/skhshths/ULTRA-experimental" target="_blank" rel="noopener">ULTRA-experimental</a> GitHub repo &mdash; if you've been invited, you can see it there.</div>
+        </form>
+
+        <div class="unlocked">
+          <h2>You're in.</h2>
+          <div class="build"><span class="live"></span><span>Latest build: <b id="rel-name">—</b> · <span id="rel-age">—</span></span></div>
+          <div class="dl">
+            <svg class="os" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5l7.5-1v7H3zM11.5 4.3L21 3v9.2h-9.5zM3 13.5h7.5v7L3 19.5zM11.5 13.5H21V21l-9.5-1.3z"/></svg>
+            <div class="t"><b>Windows 10 / 11</b><span id="sz-windows">ULTRA-windows-x64.exe</span></div>
+            <a class="btn btn-exp" href="#" data-dl="windows"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 21h16"/></svg>.exe</a>
+          </div>
+          <div class="dl">
+            <svg class="os" viewBox="0 0 24 24" fill="currentColor"><path d="M16.3 12.9c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-2.9.9-3.7 2.3-1.6 2.7-.4 6.8 1.1 9 .7 1.1 1.6 2.3 2.7 2.3 1.1 0 1.5-.7 2.8-.7 1.3 0 1.6.7 2.8.7 1.1 0 1.9-1.1 2.6-2.2.8-1.2 1.1-2.4 1.1-2.5-.1 0-2.2-.9-2.2-3.4zM14.3 5.8c.6-.8 1-1.8.9-2.8-.9 0-2 .6-2.6 1.3-.6.7-1.1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z"/></svg>
+            <div class="t"><b>macOS 11+</b><span id="sz-mac">ULTRA-macos.zip · early preview</span></div>
+            <a class="btn btn-ghost" href="#" data-dl="mac"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 21h16"/></svg>.zip</a>
+          </div>
+          <div class="msg" id="dl-msg" role="status"></div>
+          <button class="relock" id="relock" type="button">Use a different key</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="why" style="padding-top:40px">
+    <div class="wrap">
+      <div class="kicker">Why go experimental</div>
+      <h3 class="sec">Be first to everything.</h3>
+      <p class="sec-lead">Everything stable ULTRA has, plus whatever's next — and a direct hand in what makes it into the public build.</p>
+      <div class="grid">
+        <div class="pro">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h4>Fixes land here first</h4>
+          <p>Crash fixes reach experimental before stable. The audio-bars crash and the "two copies on one profile" bug were both fixed here first.</p>
+        </div>
+        <div class="pro">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 12.5a1 1 0 00.8 1.6H11l-1 7.9 8.5-10.5a1 1 0 00-.8-1.6H12z"/></svg></div>
+          <h4>New builds, constantly</h4>
+          <p>A fresh build goes out whenever ULTRA changes — often several in one day — so new features reach you in hours, not weeks.</p>
+        </div>
+        <div class="pro">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-2.6-6.4"/><path d="M21 4v5h-5"/></svg></div>
+          <h4>Updates itself</h4>
+          <p>No re-downloading. On Windows, Settings → updates → <b style="color:var(--text);font-weight:600">update now</b> installs the latest build in place.</p>
+        </div>
+        <div class="pro">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="16" rx="1.5"/></svg></div>
+          <h4>Runs alongside stable</h4>
+          <p>Experimental keeps its own profile, so your regular ULTRA tabs, settings and history stay exactly as they are. Keep both installed.</p>
+        </div>
+        <div class="pro">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <h4>Shape what ships</h4>
+          <p>Testers' bug reports go straight into the next build. What you find here is what gets fixed before everyone else sees it.</p>
+        </div>
+        <div class="pro">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></div>
+          <h4>Nothing taken away</h4>
+          <p>Tiling panes, workspaces, sleeping tabs, ad and tracker blocking, the private workspace — all of stable ULTRA is here too.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:10px">
+    <div class="wrap">
+      <div class="kicker">Side by side</div>
+      <h3 class="sec" style="margin-bottom:28px">Stable vs. experimental</h3>
+      <div class="compare">
+        <div class="crow head"><div></div><div>Stable</div><div>Experimental</div></div>
+        <div class="crow"><div>New features &amp; fixes</div><div>After testing</div><div class="e"><b>First</b></div></div>
+        <div class="crow"><div>How often it updates</div><div>Each release</div><div class="e"><b>Several times a day</b></div></div>
+        <div class="crow"><div>In-place updates</div><div>Re-download</div><div class="e"><b>Built in</b> (Windows)</div></div>
+        <div class="crow"><div>Profile</div><div>Your main one</div><div class="e">Its own, separate</div></div>
+        <div class="crow"><div>Polish</div><div class="e">Most tested</div><div>May have rough edges</div></div>
+        <div class="crow"><div>Access</div><div class="e">Anyone</div><div>Invited testers</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:10px">
+    <div class="wrap">
+      <div class="caveat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div>
+        <div>
+          <h4>Good to know before you install</h4>
+          <ul>
+            <li>Some features may be unfinished or change between builds.</li>
+            <li>The Mac build is newer and less tested than the Windows one.</li>
+            <li>Please don't share the key or the downloads — Experimental is for invited testers.</li>
+            <li>Found something? Tell us via <a href="/#feedback" style="color:var(--text);text-decoration:underline;text-underline-offset:2px">feedback</a> or the repo's issues.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="/"><span class="dot"></span>ULTRA</a>
+    <div class="fl">
+      <a href="/">Stable version</a>
+      <a href="/#feedback">Feedback</a>
+      <a href="https://github.com/skhshths/ULTRA/" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var API = "https://piapi.oliverbar.net/api/experimental";
+  var KEY_STORE = "ultraExpKey";
+  var ticket = null, ticketAt = 0, currentKey = "";
+  var $ = function(id){ return document.getElementById(id); };
+
+  function deviceId(){ // same id the main page uses for its download counter
+    var k="ultraDeviceId", id=null;
+    try { id=localStorage.getItem(k); } catch(e) {}
+    if(!id){
+      id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
+      try { localStorage.setItem(k,id); } catch(e) {}
+    }
+    return id;
+  }
+  function mb(b){ return (b/1048576).toFixed(1)+" MB"; }
+  function ago(iso){
+    var s=(Date.now()-new Date(iso).getTime())/1000;
+    if(s<3600) return Math.max(1,Math.round(s/60))+" min ago";
+    if(s<86400) return Math.round(s/3600)+"h ago";
+    return Math.round(s/86400)+"d ago";
+  }
+  function say(el,t,cls){ el.textContent=t; el.className="msg"+(cls?" "+cls:""); }
+
+  function verify(key){
+    return fetch(API+"/verify",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({key:key,device:deviceId()})})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,status:r.status,j:j}; }); });
+  }
+  function open(j){
+    ticket=j.ticket; ticketAt=Date.now();
+    var r=j.release;
+    $("rel-name").textContent=r.name; $("rel-age").textContent=ago(r.published);
+    $("sz-windows").textContent="ULTRA-windows-x64.exe"+(r.windows?" · "+mb(r.windows.size):"");
+    $("sz-mac").textContent="ULTRA-macos.zip"+(r.mac?" · "+mb(r.mac.size):"")+" · early preview";
+    $("gate").classList.add("open");
+  }
+
+  $("key-form").addEventListener("submit",function(e){
+    e.preventDefault();
+    var key=$("key").value.trim();
+    if(!key){ say($("msg"),"Paste your key first.","err"); return; }
+    $("unlock").disabled=true; say($("msg"),"Checking…");
+    verify(key).then(function(r){
+      $("unlock").disabled=false;
+      if(!r.ok){ say($("msg"),r.j.error||"That didn't work.","err"); return; }
+      currentKey=key; try { localStorage.setItem(KEY_STORE,key); } catch(x) {}
+      say($("msg"),""); open(r.j);
+    }).catch(function(){ $("unlock").disabled=false; say($("msg"),"Couldn't reach the server — try again in a bit.","err"); });
+  });
+
+  // Tickets last 10 minutes; refresh one quietly if the page has been open a while.
+  function freshTicket(){
+    if(ticket && Date.now()-ticketAt < 8*60*1000) return Promise.resolve(ticket);
+    return verify(currentKey).then(function(r){
+      if(!r.ok) throw new Error(r.j.error||"Key no longer valid");
+      open(r.j); return ticket;
+    });
+  }
+  document.querySelectorAll("[data-dl]").forEach(function(a){
+    a.addEventListener("click",function(e){
+      e.preventDefault();
+      var p=a.getAttribute("data-dl");
+      say($("dl-msg"),"Starting download…");
+      freshTicket().then(function(t){
+        window.location.href=API+"/download/"+p+"?t="+encodeURIComponent(t);
+        setTimeout(function(){ say($("dl-msg"),"Downloading — check your browser's downloads.","ok"); },600);
+      }).catch(function(err){
+        say($("dl-msg"),err.message,"err");
+        $("gate").classList.remove("open");
+        try { localStorage.removeItem(KEY_STORE); } catch(x) {}
+      });
+    });
+  });
+  $("relock").addEventListener("click",function(){
+    try { localStorage.removeItem(KEY_STORE); } catch(x) {}
+    ticket=null; currentKey=""; $("key").value=""; say($("msg"),"");
+    $("gate").classList.remove("open"); $("key").focus();
+  });
+
+  // Returning tester: re-check the saved key quietly (it may have been rotated).
+  var saved=""; try { saved=localStorage.getItem(KEY_STORE)||""; } catch(e) {}
+  if(saved){
+    verify(saved).then(function(r){
+      if(r.ok){ currentKey=saved; open(r.j); }
+      else { try { localStorage.removeItem(KEY_STORE); } catch(x) {} }
+    }).catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>

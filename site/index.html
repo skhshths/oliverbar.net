@@ -48,6 +48,11 @@
   .btn-ghost:hover{border-color:#44444c;background:var(--panel)}
   .btn svg{width:16px;height:16px}
   nav .btn{padding:8px 15px}
+  .exp-pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--muted);
+    border:1px solid var(--border-2);border-radius:999px;padding:6px 12px;transition:.15s;white-space:nowrap}
+  .exp-pill:hover{color:var(--text);border-color:#44444c;background:var(--panel)}
+  .exp-pill i{width:6px;height:6px;border-radius:50%;background:#b98cff;box-shadow:0 0 8px #b98cff}
+  @media(max-width:480px){.exp-pill .long{display:none}}
   @media(max-width:720px){nav .links{display:none}}
 
   /* hero */
@@ -201,6 +206,7 @@
       <a href="https://github.com/skhshths/ULTRA/" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
     <div class="spacer"></div>
+    <a class="exp-pill" href="/experimental"><i></i><span>Experimental<span class="long"> version</span></span></a>
     <a class="btn btn-primary" id="nav-dl" href="https://github.com/skhshths/ULTRA/releases/latest/download/ULTRA-windows-x64.exe" download>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 21h16"/></svg>
       Download

@@ -165,6 +165,10 @@
         <div class="card-head" style="margin:18px 0 6px"><h2>Services</h2></div>
         <div class="kv"><span>Site · oliverbar.net</span><b><span class="pill up"><i></i>up</span></b></div>
         <div class="kv"><span>Pi backend · piapi</span><b id="svc-pi"><span class="pill"><i></i>checking</span></b></div>
+        <div class="kv"><span>Experimental downloads</span><b id="svc-exp"><span class="pill"><i></i>checking</span></b></div>
+        <div class="card-head" style="margin:18px 0 6px"><h2>Experimental</h2><span class="spacer"></span><a class="btn btn-sm" href="/experimental" target="_blank" rel="noopener">Page ↗</a></div>
+        <div class="kv"><span>Downloads (unique devices)</span><b id="exp-total">—</b></div>
+        <div class="kv"><span>Windows · macOS</span><b id="exp-split">—</b></div>
       </div>
     </div>
 
@@ -248,6 +252,10 @@
     $("t-fb-s").textContent = o.feedback.unread ? o.feedback.unread+" unread" : "all read";
     $("stamp").textContent = "updated "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
     drawChart(o.daily);
+    var ex=o.experimental||{windows:0,mac:0,total:0,configured:false};
+    $("exp-total").textContent=fmt(ex.total);
+    $("exp-split").textContent=fmt(ex.windows)+" · "+fmt(ex.mac);
+    $("svc-exp").innerHTML = ex.configured ? '<span class="pill up"><i></i>token set</span>' : '<span class="pill down"><i></i>no token on Pi</span>';
   }
   function refreshAll(){
     api("/api/ultra-admin/overview").then(function(o){ overview=o; renderOverview(); }).catch(onAuthFail);
