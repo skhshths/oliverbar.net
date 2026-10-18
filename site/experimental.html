@@ -20,6 +20,7 @@
     --max:1120px;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden}
@@ -123,6 +124,26 @@
   .caveat h4{margin:0 0 8px;font-size:17px}
   .caveat ul{margin:0;padding-left:18px;color:var(--muted);font-size:14.5px;line-height:1.75}
 
+  /* changelog */
+  .wn{border:1px solid var(--border);border-radius:16px;background:var(--bg-2);padding:22px 24px}
+  .wn-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .wn-head b{font-size:16px;font-weight:600}
+  .wn-head .age{font-size:13px;color:var(--dim)}
+  .wn ul{margin:0;padding:0;list-style:none}
+  .wn li{position:relative;padding:5px 0 5px 18px;font-size:14.5px;color:var(--muted);line-height:1.5}
+  .wn li::before{content:"";position:absolute;left:3px;top:13px;width:5px;height:5px;border-radius:50%;background:var(--border-2)}
+  #wn-list li:first-child::before{background:var(--exp);box-shadow:0 0 6px var(--exp)}
+  .wn details{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+  .wn summary{cursor:pointer;font-size:13px;color:var(--dim);list-style:none}
+  .wn summary::-webkit-details-marker{display:none}
+  .wn summary:hover{color:var(--muted)}
+  .wn h5{margin:14px 0 2px;font-size:13.5px;font-weight:600}
+  .wn h5 span{font-weight:400;color:var(--dim);margin-left:6px}
+  .wn details li{font-size:13.5px;padding:3px 0 3px 18px}
+  .wn details li::before{top:10px}
+  .wn-locked{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:14.5px}
+  .wn-locked svg{width:20px;height:20px;color:var(--exp);flex-shrink:0}
+
   footer{border-top:1px solid var(--border);padding:40px 0 52px}
   footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
   footer .fl{display:flex;gap:22px;margin-left:auto;flex-wrap:wrap}
@@ -144,7 +165,7 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <div class="eyebrow"><b>&#9679;</b> Invite only · new builds several times a day</div>
+        <div class="eyebrow"><b>&#9679;</b> Invite only · new builds several times a day<span id="exp-upd"></span></div>
         <h1>Tomorrow's ULTRA, <span class="g">today.</span></h1>
         <p class="sub">ULTRA Experimental is the early build. Fixes and features land here first, it updates itself in place, and it runs alongside your regular ULTRA without touching it.</p>
         <a class="back" href="/">← Prefer stable? Get regular ULTRA</a>
@@ -178,6 +199,24 @@
           </div>
           <div class="msg" id="dl-msg" role="status"></div>
           <button class="relock" id="relock" type="button">Use a different key</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="changes" style="padding-top:36px;padding-bottom:20px">
+    <div class="wrap">
+      <div class="kicker">Changelog</div>
+      <h3 class="sec" style="margin-bottom:24px">What's new in experimental</h3>
+      <div class="wn" id="wn">
+        <div class="wn-locked" id="wn-locked">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3" stroke-linecap="round"/></svg>
+          <span>Enter your download key above to see what changed in each experimental build<span id="wn-locked-age"></span>.</span>
+        </div>
+        <div id="wn-open" hidden>
+          <div class="wn-head"><b id="wn-name">—</b><span class="age" id="wn-age"></span></div>
+          <ul id="wn-list"></ul>
+          <details id="wn-more" hidden><summary>Earlier builds</summary><div id="wn-older"></div></details>
         </div>
       </div>
     </div>
@@ -286,13 +325,35 @@
     return id;
   }
   function mb(b){ return (b/1048576).toFixed(1)+" MB"; }
-  function ago(iso){
-    var s=(Date.now()-new Date(iso).getTime())/1000;
-    if(s<3600) return Math.max(1,Math.round(s/60))+" min ago";
-    if(s<86400) return Math.round(s/3600)+"h ago";
-    return Math.round(s/86400)+"d ago";
+  function ago(iso){ // same wording as the main page
+    var s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
+    if(s<90) return "just now";
+    if(s<3600) return Math.round(s/60)+" min ago";
+    if(s<86400){ var h=Math.round(s/3600); return h+(h===1?" hour":" hours")+" ago"; }
+    var d=Math.round(s/86400); return d+(d===1?" day":" days")+" ago";
   }
   function say(el,t,cls){ el.textContent=t; el.className="msg"+(cls?" "+cls:""); }
+  function esc(t){ var d=document.createElement("div"); d.textContent=t; return d.innerHTML; }
+  function stamp(el,iso,prefix,suffix){ if(!el) return; el.setAttribute("data-ago",iso); el.setAttribute("data-prefix",prefix||""); el.setAttribute("data-suffix",suffix||""); el.title=new Date(iso).toLocaleString(); }
+  function tick(){ document.querySelectorAll("[data-ago]").forEach(function(el){ el.textContent=(el.getAttribute("data-prefix")||"")+ago(el.getAttribute("data-ago"))+(el.getAttribute("data-suffix")||""); }); }
+  setInterval(tick,30000);
+  function items(list){ return list.length ? list.map(function(t){ return "<li>"+esc(t)+"</li>"; }).join("") : "<li>Maintenance build: small fixes and polish.</li>"; }
+  function renderChangelog(rels){
+    if(!rels || !rels.length) return;
+    var top=rels[0];
+    $("wn-name").textContent=top.name; stamp($("wn-age"),top.published,"· updated ");
+    $("wn-list").innerHTML=items(top.changes);
+    var older=rels.slice(1);
+    if(older.length){
+      $("wn-older").innerHTML=older.map(function(r){ return '<h5>'+esc(r.name)+'<span data-ago="'+esc(r.published)+'"></span></h5><ul>'+items(r.changes)+'</ul>'; }).join("");
+      $("wn-more").hidden=false;
+    }
+    $("wn-locked").hidden=true; $("wn-open").hidden=false; tick();
+  }
+  // public: when experimental last updated (no details without a key)
+  fetch(API.replace("/experimental","/changelog/experimental")).then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.latest){ stamp($("exp-upd"),d.latest.published," · updated "); stamp($("wn-locked-age"),d.latest.published," (last one ",")"); tick(); }
+  }).catch(function(){});
 
   function verify(key){
     return fetch(API+"/verify",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -306,6 +367,7 @@
     $("sz-windows").textContent="ULTRA-windows-x64.exe"+(r.windows?" · "+mb(r.windows.size):"");
     $("sz-mac").textContent="ULTRA-macos.zip"+(r.mac?" · "+mb(r.mac.size):"")+" · early preview";
     $("gate").classList.add("open");
+    if(j.changelog) renderChangelog(j.changelog);
   }
 
   $("key-form").addEventListener("submit",function(e){
@@ -347,6 +409,7 @@
   $("relock").addEventListener("click",function(){
     try { localStorage.removeItem(KEY_STORE); } catch(x) {}
     ticket=null; currentKey=""; $("key").value=""; say($("msg"),"");
+    $("wn-locked").hidden=false; $("wn-open").hidden=true;
     $("gate").classList.remove("open"); $("key").focus();
   });
 
