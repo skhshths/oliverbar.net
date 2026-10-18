@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Is ULTRA safe? — Security &amp; malware report</title>
+<meta name="description" content="ULTRA's security and malware report: Microsoft Defender scan results, checksums, why Windows and macOS show warnings, what data ULTRA keeps, what it connects to, and how to verify it yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0b; --bg-2:#111113; --panel:#141417; --panel-2:#1a1a1e;
+    --border:#242428; --border-2:#2e2e34;
+    --text:#f3f3f4; --muted:#9a9aa2; --dim:#64646c;
+    --accent:#ff5a33; --good:#7fd19b; --warn:#e8c56a;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html{scroll-behavior:smooth;overflow-x:clip}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.6;overflow-x:hidden}
+  a{color:inherit}
+  ::selection{background:rgba(255,90,51,.18)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--panel-2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
+
+  header{position:sticky;top:0;z-index:50;background:rgba(10,10,11,.75);backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--border)}
+  nav{display:flex;align-items:center;gap:22px;height:62px;max-width:1120px;margin:0 auto;padding:0 24px}
+  .brand{font-weight:800;letter-spacing:.14em;font-size:15px;display:flex;align-items:center;gap:9px;text-decoration:none}
+  .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  .brand small{font-family:var(--mono);font-weight:500;letter-spacing:.06em;color:var(--dim);font-size:12px}
+  nav .spacer{flex:1}
+  nav .lk{color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+  nav .lk:hover{color:var(--text)}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:9px 16px;border-radius:10px;border:1px solid var(--border-2);
+    text-decoration:none;color:var(--text);background:transparent;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap}
+  .btn:hover{background:var(--panel);border-color:#44444c}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#120602}
+  .btn-primary:hover{background:#ff6b48;border-color:#ff6b48}
+  @media(max-width:560px){nav{gap:12px;padding:0 14px} nav .hide-sm{display:none}}
+
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:56px;align-items:start;padding:24px 0 80px}
+  @media(max-width:900px){.layout{grid-template-columns:minmax(0,1fr);gap:0}.toc{display:none}}
+  .toc{position:sticky;top:90px;font-size:13.5px}
+  .toc b{display:block;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:500;margin-bottom:10px}
+  .toc a{display:block;color:var(--muted);text-decoration:none;padding:5px 0 5px 12px;border-left:1px solid var(--border)}
+  .toc a:hover{color:var(--text)}
+  .toc a.on{color:var(--text);border-left-color:var(--accent)}
+
+  .hero{padding:64px 0 8px;position:relative}
+  .hero::before{content:"";position:absolute;top:-180px;left:30%;width:760px;height:480px;
+    background:radial-gradient(ellipse at center,rgba(127,209,155,.10),transparent 62%);pointer-events:none}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--good);border:1px solid rgba(127,209,155,.35);background:rgba(127,209,155,.08);padding:4px 12px;border-radius:999px;margin-bottom:18px}
+  .badge svg{width:14px;height:14px}
+  h1{font-size:clamp(34px,5.4vw,54px);line-height:1.05;letter-spacing:-.03em;margin:0 0 14px;position:relative}
+  .meta{color:var(--dim);font-size:14px;font-family:var(--mono)}
+  .lede{font-size:18px;color:var(--muted);max-width:680px;margin:18px 0 0}
+
+  section{padding-top:44px;scroll-margin-top:80px}
+  h2{font-size:26px;letter-spacing:-.02em;margin:0 0 14px}
+  p{color:var(--muted);font-size:16px;margin:0 0 14px;max-width:760px}
+  p b,li b{color:var(--text);font-weight:600}
+
+  .points{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:22px}
+  @media(max-width:640px){.points{grid-template-columns:minmax(0,1fr)}}
+  .pt{display:flex;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-2)}
+  .pt svg{width:18px;height:18px;color:var(--good);flex-shrink:0;margin-top:3px}
+  .pt b{display:block;font-size:15px;margin-bottom:2px}
+  .pt span{font-size:14px;color:var(--muted);line-height:1.5}
+
+  .build{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;color:var(--muted);margin:22px 0 0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-2)}
+  .build i{width:9px;height:9px;border-radius:50%;background:var(--dim);flex-shrink:0;margin-top:7px}
+  .build.ok i{background:var(--good);box-shadow:0 0 8px var(--good)}
+  .build.newer i{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+  .build b{color:var(--text)}
+  .build code{word-break:break-all}
+
+  .tbl{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin:6px 0 14px}
+  table{width:100%;border-collapse:collapse;font-size:14.5px}
+  th{text-align:left;font-weight:500;color:var(--dim);font-size:12.5px;padding:11px 14px;background:var(--bg-2);border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  td b{color:var(--text)}
+  .ok{color:var(--good);white-space:nowrap}
+  .pend{color:var(--dim);white-space:nowrap}
+  .hash{display:flex;gap:8px;align-items:flex-start}
+  .hash code{font-size:12px;word-break:break-all;line-height:1.5;background:none;border:0;padding:0;color:var(--muted)}
+  .copy{flex-shrink:0;font-size:12px;color:var(--muted);background:var(--panel-2);border:1px solid var(--border-2);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit}
+  .copy:hover{color:var(--text)}
+  .small{font-size:14px;color:var(--dim)}
+
+  .warns{display:grid;gap:12px;margin:6px 0 14px}
+  .warn{border:1px solid var(--border);border-radius:14px;background:var(--bg-2);padding:18px 20px}
+  .warn .q{font-size:15.5px;color:var(--text);border-left:2px solid var(--warn);padding:4px 12px;background:rgba(232,197,106,.07);border-radius:0 8px 8px 0;margin-bottom:14px}
+  .warn dl{display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px 18px;margin:0;font-size:14.5px}
+  .warn dt{color:var(--dim)} .warn dd{margin:0;color:var(--muted)} .warn dd b{color:var(--text)}
+  .warn dd code{word-break:break-all}
+  @media(max-width:560px){.warn dl{grid-template-columns:minmax(0,1fr);gap:2px 0}.warn dd{margin-bottom:10px}}
+
+  ul.list{margin:4px 0 14px;padding:0;list-style:none;max-width:760px}
+  ul.list li{position:relative;padding:8px 0 8px 22px;color:var(--muted);font-size:15.5px;border-top:1px solid var(--border)}
+  ul.list li:first-child{border-top:0}
+  ul.list li::before{content:"";position:absolute;left:4px;top:18px;width:6px;height:6px;border-radius:50%;background:var(--border-2)}
+
+  .cmp{border:1px solid var(--border);border-radius:14px;background:var(--bg-2);padding:18px 20px;margin:6px 0 16px;max-width:760px}
+  .cmp-row{display:grid;grid-template-columns:90px minmax(0,1fr) 150px;gap:14px;align-items:center;padding:7px 0;font-size:14.5px}
+  .cmp-row .lbl{font-weight:600;color:var(--text)}
+  .cmp-row .track{height:12px;border-radius:6px;background:var(--panel-2);overflow:hidden}
+  .cmp-row .fill{height:100%;border-radius:6px}
+  .cmp-row .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+  .cmp-row .num b{color:var(--text)}
+  .cmp .cap{font-size:13px;color:var(--dim);margin-top:8px}
+  @media(max-width:560px){.cmp-row{grid-template-columns:minmax(0,1fr);gap:4px}.cmp-row .num{text-align:left}}
+
+  ol.steps{margin:6px 0 14px;padding-left:22px;max-width:760px}
+  ol.steps li{color:var(--muted);font-size:15.5px;padding:6px 0}
+  .cmd{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-2);margin:8px 0;max-width:640px}
+  .cmd span{font-size:12.5px;color:var(--dim);min-width:62px}
+  .cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;background:none;border:0;padding:0}
+
+  .sources a{color:var(--text)}
+  footer{border-top:1px solid var(--border);padding:36px 0 50px}
+  footer .wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  footer .fl{display:flex;gap:22px;margin-left:auto;flex-wrap:wrap}
+  footer a{color:var(--muted);font-size:14px;text-decoration:none}
+  footer a:hover{color:var(--text)}
+
+  @media print{
+    header,.toc,footer,.copy,.btn{display:none!important}
+    body{background:#fff;color:#000} p,td,li,.pt span,.warn dd{color:#222!important}
+    .layout{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a class="brand" href="/"><span class="dot"></span>ULTRA <small>SECURITY</small></a>
+    <span class="spacer"></span>
+    <a class="lk hide-sm" href="/#features">Features</a>
+    <a class="lk hide-sm" href="/experimental">Experimental</a>
+    <a class="btn btn-primary" href="/#download">Download</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Scanned · no malware found</div>
+    <h1>Is ULTRA safe?</h1>
+    <div class="meta">Security &amp; malware report · 18 October 2026</div>
+    <p class="lede">The short answer: yes. Here&rsquo;s the full evidence: what was scanned and how, why Windows and macOS still show a warning, what ULTRA stores and connects to, and how to check every claim yourself.</p>
+  </div>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Contents">
+      <b>On this page</b>
+      <a href="#summary">Summary</a>
+      <a href="#scans">Malware scans</a>
+      <a href="#warnings">Warnings explained</a>
+      <a href="#passwords">Passwords &amp; sign-ins</a>
+      <a href="#data">History &amp; data</a>
+      <a href="#network">What ULTRA connects to</a>
+      <a href="#protections">Built-in protections</a>
+      <a href="#verify">Verify it yourself</a>
+      <a href="#sources">Sources</a>
+    </nav>
+
+    <main>
+      <section id="summary" style="padding-top:8px">
+        <h2>Summary</h2>
+        <p><b>ULTRA 8 &middot; Honeydew is clean.</b> Microsoft Defender found no threats in either release file, and both files match the checksums GitHub published for them, byte for byte.</p>
+        <div class="points">
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>No malware</b><span>Defender scan clean. A multi-engine VirusTotal scan is still to come.</span></div></div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>No telemetry</b><span>No analytics, tracking or usage reporting. An idle ULTRA sent no traffic to any ULTRA server.</span></div></div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>Your data stays on your computer</b><span>History, bookmarks, tabs and settings are plain local files that are never uploaded.</span></div></div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>No passwords stored</b><span>ULTRA doesn&rsquo;t save passwords. Imports from other browsers never touch passwords or cookies.</span></div></div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>The warnings aren&rsquo;t detections</b><span>SmartScreen and Gatekeeper warn because the app isn&rsquo;t code-signed yet.</span></div></div>
+          <div class="pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>Built in the open</b><span>Every release is built by GitHub Actions from a public commit, not on anyone&rsquo;s personal computer.</span></div></div>
+        </div>
+        <div class="build" id="build"><i></i><span>Checking which build the download button gives you&hellip;</span></div>
+      </section>
+
+      <section id="scans">
+        <h2>Malware scans</h2>
+        <p>Both files from the <a href="https://github.com/skhshths/ULTRA/releases/tag/v8-honeydew" target="_blank" rel="noopener">v8-honeydew release</a> were downloaded and scanned on 18 October 2026.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>File</th><th>Microsoft Defender</th><th>SHA-256 (matches GitHub&rsquo;s published digest)</th><th>VirusTotal (70+ engines)</th></tr></thead>
+          <tbody>
+            <tr><td><b>ULTRA-windows-x64.exe</b></td><td class="ok">&#10003; No threats found</td>
+              <td><div class="hash"><code>5584d4b5591541e0df4acc0b79eb7885aa4c9c770fac834108ed151e9131199b</code><button class="copy" type="button" data-copy="5584d4b5591541e0df4acc0b79eb7885aa4c9c770fac834108ed151e9131199b">Copy</button></div></td>
+              <td class="pend">Pending upload</td></tr>
+            <tr><td><b>ULTRA-macos.zip</b></td><td class="ok">&#10003; No threats found</td>
+              <td><div class="hash"><code>ad5eb8d3b75457540afd6d3da7ee258b8be16feaaf3f774b6ba4852e096fcf0f</code><button class="copy" type="button" data-copy="ad5eb8d3b75457540afd6d3da7ee258b8be16feaaf3f774b6ba4852e096fcf0f">Copy</button></div></td>
+              <td class="pend">Pending upload</td></tr>
+          </tbody>
+        </table></div>
+        <p class="small">Defender ran with engine 4.18.26090.9 and signatures 1.461.88.0, updated the same day.</p>
+        <p class="small">VirusTotal had never seen these files, which is normal for a new release. Its links will be added here once both files are uploaded. A clean result there means none of its 70+ antivirus engines flagged the file.</p>
+      </section>
+
+      <section id="warnings">
+        <h2>Warnings explained</h2>
+        <p>The warnings you may see when you first open ULTRA are about <b>who made it</b>, not about <b>what it does</b>. ULTRA isn&rsquo;t code-signed yet: signing costs about $200&ndash;400 a year on Windows and $99 a year on Mac.</p>
+        <div class="warns">
+          <div class="warn">
+            <div class="q">Windows: &ldquo;Windows protected your PC&rdquo; (SmartScreen)</div>
+            <dl>
+              <dt>What it means</dt><dd>The file isn&rsquo;t signed and few people have downloaded it yet, so it has no reputation.</dd>
+              <dt>What it doesn&rsquo;t mean</dt><dd>Defender found nothing. SmartScreen shows the same screen for any new unsigned app.</dd>
+              <dt>How to open ULTRA</dt><dd>Click <b>More info</b>, then <b>Run anyway</b>.</dd>
+            </dl>
+          </div>
+          <div class="warn">
+            <div class="q">Mac: &ldquo;can&rsquo;t be opened because it is from an unidentified developer&rdquo; (Gatekeeper)</div>
+            <dl>
+              <dt>What it means</dt><dd>The app isn&rsquo;t signed with an Apple Developer ID or notarized by Apple.</dd>
+              <dt>What it doesn&rsquo;t mean</dt><dd>Apple didn&rsquo;t scan it and find a problem. It never saw the app.</dd>
+              <dt>How to open ULTRA</dt><dd>Right-click ULTRA, choose <b>Open</b>, then <b>Open</b> again.</dd>
+            </dl>
+          </div>
+          <div class="warn">
+            <div class="q">Mac: &ldquo;ULTRA is damaged and can&rsquo;t be opened&rdquo;</div>
+            <dl>
+              <dt>What it means</dt><dd>macOS adds a quarantine flag to downloaded unsigned apps and words it this way.</dd>
+              <dt>What it doesn&rsquo;t mean</dt><dd>The file is intact; its checksum matches GitHub&rsquo;s.</dd>
+              <dt>How to open ULTRA</dt><dd>In Terminal: <code>xattr -dr com.apple.quarantine /Applications/ULTRA.app</code></dd>
+            </dl>
+          </div>
+        </div>
+        <p>The permanent fix is signing: a Windows code-signing certificate (or publishing through the Microsoft Store, which signs for free), and an Apple Developer ID with notarization for Mac.</p>
+      </section>
+
+      <section id="passwords">
+        <h2>Passwords and sign-ins</h2>
+        <p>ULTRA never sees, stores or sends your passwords. Pages draw on Microsoft&rsquo;s WebView2 engine (Windows) and Apple&rsquo;s WebKit (Mac), the same engines as Edge and Safari, and sign-ins happen inside them.</p>
+        <ul class="list">
+          <li><b>No password saving:</b> ULTRA leaves the engine&rsquo;s password saving off, so there is no password file to steal. Use a password manager, or your existing browser.</li>
+          <li><b>Staying signed in:</b> sign-in cookies are kept by the engine itself. On Windows they are encrypted with your Windows account (DPAPI), exactly as in Edge and Chrome.</li>
+          <li><b>Imports:</b> importing from another browser copies bookmarks, history, open tabs, shortcuts and the search engine. It never reads passwords, cookies or sign-in sessions.</li>
+          <li><b>Private workspace:</b> its lock password is stored only as an Argon2id hash. Five wrong tries lock it and wipe it. It browses privately (InPrivate) and is hidden from screenshots and screen sharing.</li>
+          <li><b>Passkeys:</b> handled by the operating system (Windows Hello, iCloud Keychain). ULTRA never holds the keys.</li>
+        </ul>
+      </section>
+
+      <section id="data">
+        <h2>History and data</h2>
+        <p>Everything ULTRA keeps stays in one folder on your computer and is never uploaded: <code>%LOCALAPPDATA%\Ultra</code> on Windows and <code>~/Library/Application Support/Ultra</code> on Mac. Delete it and ULTRA forgets everything.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>What</th><th>File</th><th>Protection</th></tr></thead>
+          <tbody>
+            <tr><td><b>History</b></td><td><code>history.json</code></td><td>Local only; clear it any time in settings</td></tr>
+            <tr><td><b>Bookmarks, shortcuts</b></td><td><code>bookmarks.json</code>, <code>shortcuts.json</code></td><td>Local only</td></tr>
+            <tr><td><b>Open tabs and layout</b></td><td><code>session.json</code></td><td>Local only; not kept for the private workspace</td></tr>
+            <tr><td><b>Settings, downloads list</b></td><td><code>settings.json</code>, <code>downloads.json</code></td><td>Local only</td></tr>
+            <tr><td><b>Chat identity (private key)</b></td><td><code>identity</code></td><td>Encrypted with your Windows account (DPAPI); on Mac, readable only by you (0600)</td></tr>
+            <tr><td><b>GitHub token</b> (optional, for updates)</td><td><code>token</code></td><td>Same as the chat identity</td></tr>
+            <tr><td><b>Crash reports</b></td><td><code>crash.log</code></td><td>Local only; you choose whether to share it</td></tr>
+          </tbody>
+        </table></div>
+        <p class="small">Files are saved atomically, so a crash or power cut can&rsquo;t leave them half-written.</p>
+      </section>
+
+      <section id="network">
+        <h2>What ULTRA connects to</h2>
+        <p>ULTRA makes only four kinds of connection of its own, and none of them carries your browsing. In a live test, a fresh ULTRA left idle made no connections except encrypted DNS lookups (DNS over HTTPS) through the computer&rsquo;s own resolvers.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Destination</th><th>When</th><th>What is sent</th></tr></thead>
+          <tbody>
+            <tr><td><b>GitHub</b> (api.github.com, github.com)</td><td>At launch and every 4 hours, to check for updates</td><td>A request for the latest release; no identifiers</td></tr>
+            <tr><td><b>Microsoft SmartScreen</b> (Windows only)</td><td>When you visit a site or download a file</td><td>The site address, checked against Microsoft&rsquo;s list of phishing and malware sites, exactly as in Edge</td></tr>
+            <tr><td><b>chat.oliverbar.net</b></td><td>Only if you create an ULTRA ID and use chat</td><td>Messages end-to-end encrypted on your device; the relay sees only ciphertext and deletes each message once delivered</td></tr>
+            <tr><td><b>Your search engine</b></td><td>When you type a search</td><td>Your search, as in any browser</td></tr>
+          </tbody>
+        </table></div>
+        <p>There is no ULTRA account, no analytics, no ads and no telemetry of any kind.</p>
+      </section>
+
+      <section id="protections">
+        <h2>Built-in protections</h2>
+        <p>ULTRA blocks more trackers than mainstream browsers do out of the box. On real ad-heavy sites, it let far fewer known ad and tracker requests through than Edge:</p>
+        <div class="cmp" role="img" aria-label="Share of known ad and tracker requests let through: ULTRA 2 of 33, about 6 percent; Edge 668 of 753, about 89 percent.">
+          <div class="cmp-row"><span class="lbl">ULTRA</span><span class="track"><span class="fill" style="display:block;width:6.1%;background:var(--good)"></span></span><span class="num"><b>2</b> of 33 let through</span></div>
+          <div class="cmp-row"><span class="lbl">Edge</span><span class="track"><span class="fill" style="display:block;width:88.7%;background:#6c6c74"></span></span><span class="num"><b>668</b> of 753 let through</span></div>
+          <div class="cap">Known ad and tracker requests that reached the page, as a share of those attempted. Lower is better.</div>
+        </div>
+        <ul class="list">
+          <li><b>Ad and tracker blocking:</b> about 150,000 rules from EasyList, EasyPrivacy, Peter Lowe&rsquo;s list and uBlock Origin&rsquo;s filters.</li>
+          <li><b>Pages can&rsquo;t control ULTRA:</b> websites can&rsquo;t reach ULTRA&rsquo;s own interface, settings or files. That interface is locked down with a strict Content Security Policy.</li>
+          <li><b>Pop-up limits:</b> sites can&rsquo;t flood you with new windows.</li>
+          <li><b>Fullscreen notice:</b> a page going fullscreen shows its real address, so it can&rsquo;t fake an address bar.</li>
+          <li><b>Safe updates:</b> updates download only from ULTRA&rsquo;s own GitHub repository. Each file must match the SHA-256 checksum GitHub published for it, or nothing is installed.</li>
+          <li><b>Chat safety:</b> encrypted connections only. Each contact&rsquo;s key is pinned on first use, and a changed key must be verified by its safety code before it is trusted.</li>
+        </ul>
+      </section>
+
+      <section id="verify">
+        <h2>How to verify it yourself</h2>
+        <p>You don&rsquo;t have to take this report&rsquo;s word for any of it. ULTRA&rsquo;s full source code is public on <a href="https://github.com/skhshths/ULTRA" target="_blank" rel="noopener">GitHub</a>, and every release is built by GitHub Actions from a public commit.</p>
+        <ol class="steps">
+          <li><b>Check that your file is the real one.</b> Compare its SHA-256 with the table above, or with the one shown next to the file on the release page.
+            <div class="cmd"><span>Windows</span><code>certutil -hashfile ULTRA-windows-x64.exe SHA256</code><button class="copy" type="button" data-copy="certutil -hashfile ULTRA-windows-x64.exe SHA256">Copy</button></div>
+            <div class="cmd"><span>Mac</span><code>shasum -a 256 ULTRA-macos.zip</code><button class="copy" type="button" data-copy="shasum -a 256 ULTRA-macos.zip">Copy</button></div>
+          </li>
+          <li><b>Scan it.</b> Upload it to <a href="https://www.virustotal.com" target="_blank" rel="noopener">VirusTotal</a>, or right-click it and choose <b>Scan with Microsoft Defender</b>.</li>
+          <li><b>Watch its traffic.</b> Any network monitor (Windows Resource Monitor, Little Snitch on Mac) will show only the connections listed above.</li>
+          <li><b>Read the code.</b> Search the repository for any address ULTRA could contact. There are only the ones in this report.</li>
+        </ol>
+      </section>
+
+      <section id="sources" class="sources">
+        <h2>Sources</h2>
+        <ul class="list">
+          <li><a href="https://github.com/skhshths/ULTRA" target="_blank" rel="noopener">ULTRA source code</a></li>
+          <li><a href="https://github.com/skhshths/ULTRA/releases/tag/v8-honeydew" target="_blank" rel="noopener">Release v8-honeydew and its checksums</a></li>
+          <li><a href="https://www.virustotal.com" target="_blank" rel="noopener">VirusTotal</a></li>
+        </ul>
+        <p style="margin-top:22px"><a class="btn btn-primary" href="/#download">Download ULTRA</a></p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="/"><span class="dot"></span>ULTRA</a>
+    <div class="fl">
+      <a href="/">Home</a>
+      <a href="/#download">Download</a>
+      <a href="https://github.com/skhshths/ULTRA/" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  // Which build does the download button give you right now, vs. the one scanned?
+  var SCANNED = { tag:"v8-honeydew", name:"ULTRA 8 · Honeydew",
+    win:"5584d4b5591541e0df4acc0b79eb7885aa4c9c770fac834108ed151e9131199b",
+    mac:"ad5eb8d3b75457540afd6d3da7ee258b8be16feaaf3f774b6ba4852e096fcf0f" };
+  function esc(t){ var d=document.createElement("div"); d.textContent=t; return d.innerHTML; }
+  var el=document.getElementById("build");
+  fetch("https://api.github.com/repos/skhshths/ULTRA/releases/latest").then(function(r){ return r.json(); }).then(function(rel){
+    var dig={}; (rel.assets||[]).forEach(function(a){ if(a.digest) dig[a.name]=String(a.digest).replace(/^sha256:/,""); });
+    var w=dig["ULTRA-windows-x64.exe"], m=dig["ULTRA-macos.zip"];
+    if(rel.tag_name===SCANNED.tag && (!w||w===SCANNED.win) && (!m||m===SCANNED.mac)){
+      el.className="build ok";
+      el.innerHTML='<i></i><span>The download button gives you <b>'+esc(SCANNED.name)+'</b>, the exact build this report scanned.</span>';
+    } else {
+      el.className="build newer";
+      el.innerHTML='<i></i><span>A newer build, <b>'+esc(rel.name||rel.tag_name)+'</b>, has shipped since this report. It&rsquo;s built the same way from public code; check it against the checksum GitHub published for it'+(w?': <code>'+esc(w)+'</code> (Windows)':'')+'.</span>';
+    }
+  }).catch(function(){ el.innerHTML='<i></i><span>This report covers <b>'+esc(SCANNED.name)+'</b>.</span>'; });
+
+  // copy buttons
+  document.addEventListener("click", function(e){
+    var c=e.target.closest(".copy"); if(!c || !navigator.clipboard) return;
+    navigator.clipboard.writeText(c.getAttribute("data-copy")).then(function(){ var t=c.textContent; c.textContent="Copied"; setTimeout(function(){ c.textContent=t; },1400); }, function(){});
+  });
+
+  // highlight the section you're reading in the contents list
+  var links=[].slice.call(document.querySelectorAll(".toc a"));
+  var secs=links.map(function(a){ return document.querySelector(a.getAttribute("href")); });
+  function spy(){
+    var y=window.scrollY+120, cur=0;
+    secs.forEach(function(s,i){ if(s && s.offsetTop<=y) cur=i; });
+    links.forEach(function(a,i){ a.classList.toggle("on", i===cur); });
+  }
+  window.addEventListener("scroll", spy, {passive:true}); spy();
+})();
+</script>
+</body>
+</html>
