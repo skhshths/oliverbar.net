@@ -146,6 +146,15 @@
   .fineprint a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
   @media(max-width:560px){.dl-cards{grid-template-columns:1fr}}
 
+  /* download counter */
+  .counts{display:grid;grid-template-columns:repeat(3,1fr);max-width:740px;margin:16px auto 0;
+    border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--border);gap:1px}
+  .count{background:var(--bg-2);padding:18px 16px;text-align:center}
+  .count .n{font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .count .l{font-family:var(--mono);font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+  .count.total .n{color:var(--accent)}
+  #hero-count{color:var(--muted);font-variant-numeric:tabular-nums}
+
   /* footer */
   footer{border-top:1px solid var(--border);padding:44px 0 56px}
   footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
@@ -189,7 +198,7 @@
         <a class="btn btn-ghost" id="hero-alt" href="https://github.com/skhshths/ULTRA/releases/latest/download/ULTRA-macos.zip" download>Download for macOS</a>
         <a class="btn btn-ghost" href="https://github.com/skhshths/ULTRA/" target="_blank" rel="noopener">View source ↗</a>
       </div>
-      <p class="os-note"><b>No account. Nothing leaves your computer.</b> Always the newest build — links point at the latest release.</p>
+      <p class="os-note"><b>No account. Nothing leaves your computer.</b> <span id="hero-count"></span>Always the newest build — links point at the latest release.</p>
 
       <div class="mock" aria-hidden="true">
         <div class="chrome">
@@ -310,6 +319,11 @@
           </a>
         </div>
       </div>
+      <div class="counts" aria-live="polite">
+        <div class="count"><div class="n" data-count="windows">&mdash;</div><div class="l">Windows</div></div>
+        <div class="count"><div class="n" data-count="mac">&mdash;</div><div class="l">macOS</div></div>
+        <div class="count total"><div class="n" data-count="total">&mdash;</div><div class="l">Total downloads</div></div>
+      </div>
       <p class="fineprint">
         <b style="color:var(--muted)">First launch on Windows:</b> double-click the <code>.exe</code> — there's nothing to install. If Windows shows <b style="color:var(--muted)">"Windows protected your PC"</b>, click <b style="color:var(--muted)">More info &rarr; Run anyway</b> (ULTRA isn't code-signed yet). On older Windows 10 you may need the free <a href="https://developer.microsoft.com/microsoft-edge/webview2/#download-section" target="_blank" rel="noopener">WebView2 Runtime</a>.
         &nbsp;·&nbsp; <b style="color:var(--muted)">On a Mac:</b> unzip, drag <b style="color:var(--muted)">ULTRA.app</b> to Applications, then right-click &rarr; Open the first time.
@@ -346,6 +360,42 @@
       alt.href = win; alt.textContent = "Download for Windows";
       document.getElementById("nav-dl").href = mac;
     }
+  })();
+</script>
+<script>
+  // Download counter: one count per device per platform (device id lives in
+  // localStorage). Counting never blocks or delays the actual download.
+  (function(){
+    var API = "https://piapi.oliverbar.net/api/downloads";
+    function fmt(n){ return Number(n).toLocaleString(); }
+    function show(c){
+      if(!c || typeof c.total !== "number") return;
+      document.querySelectorAll("[data-count]").forEach(function(el){ el.textContent = fmt(c[el.getAttribute("data-count")] || 0); });
+      var h = document.getElementById("hero-count");
+      if(h && c.total > 0) h.textContent = fmt(c.total) + " downloads so far. ";
+    }
+    function deviceId(){
+      var k = "ultraDeviceId", id = null;
+      try { id = localStorage.getItem(k); } catch(e) {}
+      if(!id){
+        id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+          : (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
+        try { localStorage.setItem(k, id); } catch(e) {}
+      }
+      return id;
+    }
+    fetch(API, { cache: "no-store" }).then(function(r){ return r.json(); }).then(show).catch(function(){});
+    document.addEventListener("click", function(e){
+      var a = e.target.closest && e.target.closest('a[href*="/releases/latest/download/"]');
+      if(!a) return;
+      var platform = /windows/i.test(a.href) ? "windows" : (/macos/i.test(a.href) ? "mac" : null);
+      if(!platform) return;
+      fetch(API + "/count", {
+        method: "POST", keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform: platform, device: deviceId() })
+      }).then(function(r){ return r.json(); }).then(show).catch(function(){});
+    });
   })();
 </script>
 </body>
