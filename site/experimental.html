@@ -54,9 +54,10 @@
     filter:blur(10px);pointer-events:none}
   .hero .wrap{position:relative;display:grid;grid-template-columns:1.15fr 1fr;gap:56px;align-items:center}
   @media(max-width:920px){.hero .wrap{grid-template-columns:1fr;gap:40px}}
-  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;color:var(--muted);
-    border:1px solid var(--border-2);background:var(--panel);padding:6px 13px;border-radius:999px;margin-bottom:24px}
-  .eyebrow b{color:var(--exp);font-weight:500}
+  .eyebrow{display:inline-block;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--muted);
+    border:1px solid var(--border-2);background:var(--panel);padding:5px 14px;border-radius:14px;margin-bottom:24px}
+  .eyebrow b{color:var(--exp);font-weight:500;margin-right:6px}
+  #exp-upd{white-space:nowrap}
   h1{font-size:clamp(38px,6.2vw,68px);line-height:1.03;letter-spacing:-.03em;font-weight:800;margin:0 0 20px}
   h1 .g{color:var(--dim)}
   .sub{font-size:clamp(16px,2vw,19px);color:var(--muted);max-width:520px;margin:0;line-height:1.55}
@@ -144,6 +145,50 @@
   .wn-locked{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:14.5px}
   .wn-locked svg{width:20px;height:20px;color:var(--exp);flex-shrink:0}
 
+  /* request access */
+  .rq{display:grid;grid-template-columns:1fr 1.25fr;gap:48px;align-items:start}
+  @media(max-width:880px){.rq{grid-template-columns:1fr;gap:26px}}
+  .rq-side p{color:var(--muted);font-size:15.5px;margin:0 0 16px}
+  .rq-steps{margin:0;padding:0;list-style:none;counter-reset:s}
+  .rq-steps li{counter-increment:s;position:relative;padding:10px 0 10px 38px;border-top:1px solid var(--border);color:var(--muted);font-size:14.5px}
+  .rq-steps li::before{content:counter(s);position:absolute;left:0;top:9px;width:24px;height:24px;border-radius:7px;border:1px solid var(--border-2);
+    font-family:var(--mono);font-size:12px;color:var(--exp);display:flex;align-items:center;justify-content:center}
+  .rq-steps code{font-family:var(--mono);font-size:12.5px;color:var(--text)}
+  .rq-card{border:1px solid var(--border-2);border-radius:16px;background:var(--panel);padding:24px}
+  .rq-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:520px){.rq-grid{grid-template-columns:1fr}}
+  .rq-card label{display:block;font-size:12px;color:var(--dim);margin:0 0 6px;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase}
+  .rq-card label span{text-transform:none;letter-spacing:0}
+  .rq-row{margin-bottom:14px}
+  .rq-card input,.rq-card textarea{width:100%;font:inherit;font-size:15px;color:var(--text);background:var(--bg-2);border:1px solid var(--border-2);
+    border-radius:10px;padding:11px 13px;outline:none;transition:border-color .15s}
+  .rq-card textarea{min-height:110px;resize:vertical;line-height:1.5}
+  .rq-card input:focus,.rq-card textarea:focus{border-color:rgba(185,140,255,.55)}
+  .at{position:relative}
+  .at::before{content:"@";position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:15px;pointer-events:none}
+  .rq-card .at input{padding-left:28px}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:10px;padding:3px;gap:3px;background:var(--bg-2)}
+  .seg button{font-size:13.5px;font-weight:500;color:var(--muted);background:none;border:0;padding:7px 14px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--panel-2);color:var(--text);box-shadow:0 0 0 1px var(--border-2)}
+  .rq-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .rq-count{font-size:12px;color:var(--dim);float:right;font-family:var(--mono);text-transform:none;letter-spacing:0}
+  .rq-status{display:flex;gap:16px;align-items:flex-start}
+  .rq-status .av{width:44px;height:44px;border-radius:12px;border:1px solid var(--border-2);flex-shrink:0;object-fit:cover;background:var(--panel-2)}
+  .rq-status h4{margin:0 0 6px;font-size:18px}
+  .rq-status p{margin:0 0 14px;color:var(--muted);font-size:14.5px}
+  .rq-status p b{color:var(--text)}
+  .rq-status code{font-family:var(--mono);font-size:12.5px;color:var(--text)}
+  .rq-status .btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;
+    padding:3px 9px;border-radius:999px;border:1px solid var(--border-2);color:var(--muted);margin-bottom:10px}
+  .badge i{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+  .badge.pending{color:#e8c56a;border-color:rgba(232,197,106,.35)} .badge.pending i{background:#e8c56a;box-shadow:0 0 8px #e8c56a}
+  .badge.approved{color:var(--good);border-color:rgba(127,209,155,.35)} .badge.approved i{background:var(--good);box-shadow:0 0 8px var(--good)}
+  .badge.denied{color:var(--bad);border-color:rgba(255,138,112,.35)} .badge.denied i{background:var(--bad)}
+  .note{border-left:2px solid var(--exp);padding:7px 12px;margin:2px 0 12px;color:var(--text);font-size:14.5px;background:var(--exp-soft);border-radius:0 8px 8px 0}
+  .linkbtn{background:none;border:0;padding:0;color:var(--dim);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+  .linkbtn:hover{color:var(--muted)}
+
   footer{border-top:1px solid var(--border);padding:40px 0 52px}
   footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
   footer .fl{display:flex;gap:22px;margin-left:auto;flex-wrap:wrap}
@@ -165,7 +210,7 @@
   <section class="hero">
     <div class="wrap">
       <div>
-        <div class="eyebrow"><b>&#9679;</b> Invite only · new builds several times a day<span id="exp-upd"></span></div>
+        <div class="eyebrow"><b>&#9679;</b> Invite only · new builds daily<span id="exp-upd"></span></div>
         <h1>Tomorrow's ULTRA, <span class="g">today.</span></h1>
         <p class="sub">ULTRA Experimental is the early build. Fixes and features land here first, it updates itself in place, and it runs alongside your regular ULTRA without touching it.</p>
         <a class="back" href="/">← Prefer stable? Get regular ULTRA</a>
@@ -181,7 +226,8 @@
           </div>
           <div class="msg" id="msg" role="status"></div>
           <div class="where">Where's the key? It's in <code>EXPERIMENTAL_KEY.txt</code> in the private
-            <a href="https://github.com/skhshths/ULTRA-experimental" target="_blank" rel="noopener">ULTRA-experimental</a> GitHub repo &mdash; if you've been invited, you can see it there.</div>
+            <a href="https://github.com/skhshths/ULTRA-experimental" target="_blank" rel="noopener">ULTRA-experimental</a> GitHub repo &mdash; if you've been invited, you can see it there.
+            <br>Not invited yet? <a href="#request" style="color:var(--exp)">Request access &rarr;</a></div>
         </form>
 
         <div class="unlocked">
@@ -204,7 +250,48 @@
     </div>
   </section>
 
-  <section id="changes" style="padding-top:36px;padding-bottom:20px">
+  <section id="request" style="padding-top:36px;padding-bottom:20px">
+    <div class="wrap">
+      <div class="rq">
+        <div class="rq-side">
+          <div class="kicker">Request access</div>
+          <h3 class="sec">Want in?</h3>
+          <p>Experimental is invite-only. Tell us who you are and what you'd put it through &mdash; every request is read by the person building ULTRA.</p>
+          <ol class="rq-steps">
+            <li>Send a request with your GitHub username.</li>
+            <li>If you're approved, GitHub invites you to the private ULTRA-experimental repo.</li>
+            <li>Accept the invite, copy the key from <code>EXPERIMENTAL_KEY.txt</code>, and unlock the downloads above.</li>
+          </ol>
+        </div>
+
+        <div class="rq-card">
+          <form id="rq-form" novalidate>
+            <div class="rq-grid">
+              <div class="rq-row"><label for="rq-name">Display name</label><input id="rq-name" maxlength="40" autocomplete="nickname" placeholder="Sam"></div>
+              <div class="rq-row"><label for="rq-gh">GitHub username</label><div class="at"><input id="rq-gh" maxlength="60" autocomplete="off" spellcheck="false" placeholder="your-username"></div></div>
+            </div>
+            <div class="rq-row"><label>I'll be testing on</label>
+              <div class="seg" role="radiogroup" aria-label="Platform">
+                <button type="button" data-p="windows" class="on" role="radio" aria-checked="true">Windows</button>
+                <button type="button" data-p="mac" role="radio" aria-checked="false">macOS</button>
+                <button type="button" data-p="both" role="radio" aria-checked="false">Both</button>
+              </div>
+            </div>
+            <div class="rq-row"><label for="rq-msg">What would you use it for, or what should we test? <span class="rq-count" id="rq-count">0 / 1000</span></label>
+              <textarea id="rq-msg" maxlength="1000" placeholder="I keep 60+ tabs open across three monitors &mdash; happy to hammer the tiling and tab sleeping."></textarea></div>
+            <div class="rq-row"><label for="rq-contact">Email <span>(optional &mdash; only if you'd like a reply)</span></label><input id="rq-contact" maxlength="120" autocomplete="email" placeholder="you@example.com"></div>
+            <div class="rq-foot">
+              <button class="btn btn-exp" type="submit" id="rq-send">Request access</button>
+              <span class="msg" id="rq-out" role="status" style="margin:0"></span>
+            </div>
+          </form>
+          <div id="rq-status" hidden></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="changes\" style="padding-top:36px;padding-bottom:20px">
     <div class="wrap">
       <div class="kicker">Changelog</div>
       <h3 class="sec" style="margin-bottom:24px">What's new in experimental</h3>
@@ -412,6 +499,85 @@
     $("wn-locked").hidden=false; $("wn-open").hidden=true;
     $("gate").classList.remove("open"); $("key").focus();
   });
+
+
+  // ---------- request access ----------
+  var REQ_STORE = "ultraExpRequest", reqPoll = null, plat = "windows";
+  document.querySelectorAll("#rq-form .seg button").forEach(function(b){
+    b.addEventListener("click", function(){
+      plat = b.getAttribute("data-p");
+      document.querySelectorAll("#rq-form .seg button").forEach(function(x){ var on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
+    });
+  });
+  $("rq-msg").addEventListener("input", function(){ $("rq-count").textContent = this.value.length + " / 1000"; });
+  function showStatus(r){
+    $("rq-form").hidden = true;
+    var box = $("rq-status"); box.hidden = false;
+    var gh = esc(r.github);
+    var av = '<img class="av" alt="" src="https://github.com/' + encodeURIComponent(r.github) + '.png?size=88">';
+    var note = r.note ? '<div class="note">' + esc(r.note) + '</div>' : "";
+    var html;
+    if (r.status === "approved") {
+      html = '<div class="rq-status">' + av + '<div><span class="badge approved"><i></i>Approved</span>' +
+        '<h4>You’re in, ' + esc(r.name) + '.</h4>' + note +
+        '<p>GitHub is inviting <b>@' + gh + '</b> to the private repo. Accept the invite, then open <code>EXPERIMENTAL_KEY.txt</code> there and paste the key into the box above.</p>' +
+        '<div class="btns"><a class="btn btn-exp" href="https://github.com/skhshths/ULTRA-experimental/invitations" target="_blank" rel="noopener">Accept the invite ↗</a>' +
+        '<a class="btn btn-ghost" href="https://github.com/skhshths/ULTRA-experimental/blob/main/EXPERIMENTAL_KEY.txt" target="_blank" rel="noopener">Open the key ↗</a></div></div></div>';
+    } else if (r.status === "denied") {
+      html = '<div class="rq-status">' + av + '<div><span class="badge denied"><i></i>Not this time</span>' +
+        '<h4>Thanks for asking, ' + esc(r.name) + '.</h4>' + note +
+        '<p>We can’t add <b>@' + gh + '</b> to experimental right now. Stable ULTRA gets the same features once they’re ready.</p>' +
+        '<button class="linkbtn" id="rq-again" type="button">Send a new request</button></div></div>';
+    } else {
+      html = '<div class="rq-status">' + av + '<div><span class="badge pending"><i></i>Pending review</span>' +
+        '<h4>Request received, ' + esc(r.name) + '.</h4>' +
+        '<p>We’ve got your request for <b>@' + gh + '</b> (sent <span data-ago="' + new Date(r.ts).toISOString() + '"></span>). ' +
+        'This page updates by itself when there’s a decision — and if you’re approved, GitHub will email you an invite too.</p>' +
+        '<button class="linkbtn" id="rq-forget" type="button">Not you? Clear this from this browser</button></div></div>';
+    }
+    box.innerHTML = html;
+    tick();
+    var again = $("rq-again"); if (again) again.addEventListener("click", resetRequest);
+    var forget = $("rq-forget"); if (forget) forget.addEventListener("click", resetRequest);
+    clearInterval(reqPoll);
+    if (r.status === "pending") reqPoll = setInterval(function(){ if (!document.hidden) checkRequest(); }, 60000);
+  }
+  function resetRequest(){
+    try { localStorage.removeItem(REQ_STORE); } catch (e) {}
+    clearInterval(reqPoll);
+    $("rq-status").hidden = true; $("rq-form").hidden = false; $("rq-form").reset();
+    plat = "windows";
+    document.querySelectorAll("#rq-form .seg button").forEach(function(x){ var on = x.getAttribute("data-p") === "windows"; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
+    $("rq-count").textContent = "0 / 1000"; say($("rq-out"), "");
+  }
+  function checkRequest(){
+    var id = ""; try { id = localStorage.getItem(REQ_STORE) || ""; } catch (e) {}
+    if (!id) return;
+    fetch(API + "/request/" + encodeURIComponent(id), { cache: "no-store" }).then(function(r){
+      if (r.status === 404) { resetRequest(); return null; }
+      return r.json();
+    }).then(function(r){ if (r && r.status) showStatus(r); }).catch(function(){});
+  }
+  $("rq-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    var body = { name: $("rq-name").value.trim(), github: $("rq-gh").value.trim(), platform: plat,
+      message: $("rq-msg").value.trim(), contact: $("rq-contact").value.trim() };
+    var out = $("rq-out");
+    if (!body.name) { say(out, "Add a display name.", "err"); return; }
+    if (!body.github) { say(out, "Add your GitHub username.", "err"); return; }
+    if (body.message.length < 10) { say(out, "Tell us a little about why you’d like in.", "err"); return; }
+    $("rq-send").disabled = true; say(out, "Sending…");
+    fetch(API + "/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+      .then(function(r){
+        $("rq-send").disabled = false;
+        if (!r.ok) { say(out, r.j.error || "Couldn’t send that.", "err"); return; }
+        try { localStorage.setItem(REQ_STORE, r.j.request.id); } catch (e) {}
+        showStatus(r.j.request);
+      })
+      .catch(function(){ $("rq-send").disabled = false; say(out, "Couldn’t reach the server — try again in a bit.", "err"); });
+  });
+  checkRequest();
 
   // Returning tester: re-check the saved key quietly (it may have been rotated).
   var saved=""; try { saved=localStorage.getItem(KEY_STORE)||""; } catch(e) {}

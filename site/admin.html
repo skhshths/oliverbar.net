@@ -108,6 +108,33 @@
   .fb-contact a{color:var(--text);text-underline-offset:2px}
   .fb-actions{display:flex;gap:6px}
   .empty{color:var(--dim);font-size:14px;text-align:center;padding:36px 0}
+  /* access requests */
+  .rq-list{display:flex;flex-direction:column;gap:10px}
+  .rq{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px 16px}
+  .rq.pending{border-color:var(--border-2);box-shadow:inset 3px 0 0 #b98cff}
+  .rq-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .rq-top img{width:36px;height:36px;border-radius:9px;border:1px solid var(--border-2);background:var(--panel-2)}
+  .rq-who b{font-size:14.5px}
+  .rq-who a{color:var(--muted);font-family:var(--mono);font-size:12.5px;margin-left:6px;text-decoration:none}
+  .rq-who a:hover{color:var(--text)}
+  .rq-who .sub{display:block;font-size:12.5px;color:var(--dim)}
+  .rq-top .spacer{flex:1}
+  .st{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:6px;border:1px solid var(--border-2);color:var(--muted)}
+  .st.pending{color:#b98cff;border-color:rgba(185,140,255,.4)}
+  .st.approved{color:var(--good);border-color:rgba(127,209,155,.35)}
+  .st.denied{color:var(--bad);border-color:rgba(255,138,112,.35)}
+  .unv{font-family:var(--mono);font-size:10.5px;color:var(--bad);margin-left:6px}
+  .dup{font-family:var(--mono);font-size:10.5px;color:#e8c56a;margin-left:6px}
+  .rq-msg{margin:10px 0 0;font-size:14.5px;white-space:pre-wrap;word-break:break-word}
+  .rq-meta{margin-top:8px;font-size:12.5px;color:var(--dim)}
+  .rq-meta a{color:var(--muted)}
+  .rq-act{display:flex;gap:6px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .rq-act input{flex:1;min-width:160px;font-size:13px;color:var(--text);background:var(--bg-2);border:1px solid var(--border-2);border-radius:8px;padding:6px 10px;outline:none}
+  .rq-act input:focus{border-color:#4a4a52}
+  .btn-ok:hover{border-color:rgba(127,209,155,.5);color:var(--good);background:rgba(127,209,155,.06)}
+  .rq-result{margin-top:8px;font-size:12.5px}
+  .rq-result.ok{color:var(--good)} .rq-result.warn{color:#e8c56a}
+  .rq-result a{color:var(--text)}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--border-2);
     border-radius:10px;padding:10px 16px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
@@ -169,7 +196,23 @@
         <div class="card-head" style="margin:18px 0 6px"><h2>Experimental</h2><span class="spacer"></span><a class="btn btn-sm" href="/experimental" target="_blank" rel="noopener">Page ↗</a></div>
         <div class="kv"><span>Downloads (unique devices)</span><b id="exp-total">—</b></div>
         <div class="kv"><span>Windows · macOS</span><b id="exp-split">—</b></div>
+        <div class="kv"><span>Access requests waiting</span><b id="exp-req">—</b></div>
       </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-head">
+        <h2>Experimental requests</h2>
+        <div class="filters" id="rq-filters">
+          <button data-f="pending" class="on">Pending<span class="c" id="rc-pending"></span></button>
+          <button data-f="approved">Approved<span class="c" id="rc-approved"></span></button>
+          <button data-f="denied">Denied<span class="c" id="rc-denied"></span></button>
+          <button data-f="all">All<span class="c" id="rc-all"></span></button>
+        </div>
+        <span class="spacer"></span>
+        <a class="btn btn-sm" href="https://github.com/skhshths/ULTRA-experimental/settings/access" target="_blank" rel="noopener">Repo access ↗</a>
+      </div>
+      <div class="rq-list" id="rq-list"><div class="empty">Loading…</div></div>
     </div>
 
     <div class="card">
@@ -227,7 +270,7 @@
     return api("/api/ultra-admin/overview").then(function(o){
       try { sessionStorage.setItem(KEY, pw); } catch(e) {}
       $("gate").style.display="none"; $("app").style.display="block";
-      overview=o; renderOverview(); loadFeedback(); loadGitHub(); checkPi();
+      overview=o; renderOverview(); loadFeedback(); loadRequests(); loadGitHub(); checkPi();
     }).catch(function(e){
       pw=""; try { sessionStorage.removeItem(KEY); } catch(x) {}
       if(!silent) $("gate-err").textContent = e.auth ? "Wrong password." : "Can't reach the backend right now.";
@@ -255,11 +298,12 @@
     var ex=o.experimental||{windows:0,mac:0,total:0,configured:false};
     $("exp-total").textContent=fmt(ex.total);
     $("exp-split").textContent=fmt(ex.windows)+" · "+fmt(ex.mac);
+    var pend=(o.requests&&o.requests.pending)||0; $("exp-req").innerHTML = pend ? '<span style="color:#b98cff">'+fmt(pend)+' pending</span>' : "none";
     $("svc-exp").innerHTML = ex.configured ? '<span class="pill up"><i></i>token set</span>' : '<span class="pill down"><i></i>no token on Pi</span>';
   }
   function refreshAll(){
     api("/api/ultra-admin/overview").then(function(o){ overview=o; renderOverview(); }).catch(onAuthFail);
-    loadFeedback(); checkPi();
+    loadFeedback(); loadRequests(); checkPi();
   }
   function onAuthFail(e){ if(e && e.auth){ try { sessionStorage.removeItem(KEY); } catch(x) {} location.reload(); } }
   $("refresh").addEventListener("click", function(){ refreshAll(); loadGitHub(); toast("Refreshed"); });
@@ -339,6 +383,78 @@
   }
 
   // ---------- feedback ----------
+
+  // ---------- experimental access requests ----------
+  var requests = [], rqFilter = "pending", rqResults = {};
+  function loadRequests(){
+    api("/api/ultra-admin/requests").then(function(list){ requests = list; renderRequests(); }).catch(onAuthFail);
+  }
+  function renderRequests(){
+    var c = { pending:0, approved:0, denied:0, all:requests.length }, perName = {};
+    requests.forEach(function(r){ c[r.status] = (c[r.status]||0)+1; var k=r.github.toLowerCase(); perName[k]=(perName[k]||0)+1; });
+    Object.keys(c).forEach(function(k){ var el=$("rc-"+k); if(el) el.textContent = c[k] || ""; });
+    var rows = requests.filter(function(r){ return rqFilter==="all" || r.status===rqFilter; });
+    if(!rows.length){ $("rq-list").innerHTML = '<div class="empty">'+(requests.length?"Nothing here.":"No requests yet.")+'</div>'; return; }
+    $("rq-list").innerHTML = rows.map(function(r){
+      var plat = {windows:"Windows", mac:"macOS", both:"Windows + macOS"}[r.platform] || r.platform;
+      var meta = [];
+      if(r.contact){ var mail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.contact); meta.push('reply to '+(mail?'<a href="mailto:'+esc(r.contact)+'">'+esc(r.contact)+'</a>':esc(r.contact))); }
+      if(r.decided_ts) meta.push('decided '+ago(r.decided_ts));
+      if(r.status==="approved"){
+        meta.push(r.invite==="sent" ? 'GitHub invite sent' : r.invite==="already" ? 'already had access'
+            : '<span style="color:#e8c56a">invite not sent — <a href="https://github.com/skhshths/ULTRA-experimental/settings/access" target="_blank" rel="noopener">add them manually</a></span>');
+      }
+      var res = rqResults[r.id] ? '<div class="rq-result '+rqResults[r.id].cls+'">'+rqResults[r.id].html+'</div>' : "";
+      var acts = r.status==="pending"
+        ? '<div class="rq-act"><input placeholder="Optional note they’ll see (e.g. Welcome aboard!)" maxlength="300" data-note="'+esc(r.id)+'">'+
+          '<button class="btn btn-sm btn-ok" data-rq="approve">Approve &amp; invite</button>'+
+          '<button class="btn btn-sm btn-danger" data-rq="deny">Deny</button>'+
+          '<button class="btn btn-sm" data-rq="del" title="Delete (spam)">Delete</button></div>'
+        : '<div class="rq-act"><button class="btn btn-sm" data-rq="del">Delete</button></div>';
+      return '<div class="rq '+esc(r.status)+'" data-id="'+esc(r.id)+'">'+
+        '<div class="rq-top"><img alt="" src="https://github.com/'+encodeURIComponent(r.github)+'.png?size=72">'+
+        '<div class="rq-who"><b>'+esc(r.name)+'</b><a href="https://github.com/'+encodeURIComponent(r.github)+'" target="_blank" rel="noopener">@'+esc(r.github)+' ↗</a>'+
+        (r.verified?'':'<span class="unv">UNVERIFIED</span>')+
+        (perName[r.github.toLowerCase()]>1?'<span class="dup">'+perName[r.github.toLowerCase()]+' REQUESTS FOR THIS NAME</span>':'')+
+        '<span class="sub">'+plat+' · '+ago(r.ts)+'</span></div>'+
+        '<span class="spacer"></span><span class="st '+esc(r.status)+'">'+esc(r.status)+'</span></div>'+
+        '<p class="rq-msg">'+esc(r.message)+'</p>'+
+        (r.note?'<div class="rq-meta">Your note: '+esc(r.note)+'</div>':'')+
+        (meta.length?'<div class="rq-meta">'+meta.join(' · ')+'</div>':'')+
+        acts+res+'</div>';
+    }).join("");
+  }
+  $("rq-list").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-rq]"); if(!b) return;
+    var card = b.closest(".rq"), id = card.getAttribute("data-id"), act = b.getAttribute("data-rq");
+    var r = requests.find(function(x){ return x.id===id; }); if(!r) return;
+    if(act==="del"){
+      if(!confirm("Delete this request?")) return;
+      api("/api/ultra-admin/requests/delete",{id:id}).then(function(){ requests=requests.filter(function(x){return x.id!==id;}); renderRequests(); refreshOverviewOnly(); toast("Deleted"); }).catch(onAuthFail);
+      return;
+    }
+    var noteEl = card.querySelector("[data-note]"), note = noteEl ? noteEl.value.trim() : "";
+    if(act==="deny" && !confirm("Deny @"+r.github+"?")) return;
+    card.querySelectorAll("button").forEach(function(x){ x.disabled = true; });
+    api("/api/ultra-admin/requests/decide",{id:id, decision:act, note:note}).then(function(out){
+      r.status = out.status; r.note = note; r.decided_ts = Date.now(); r.invite = out.invite || null;
+      if(act==="approve"){
+        rqResults[id] = out.invite==="sent" ? {cls:"ok", html:"Approved — GitHub has invited @"+esc(r.github)+" to the repo."}
+          : out.invite==="already" ? {cls:"ok", html:"Approved — @"+esc(r.github)+" already has repo access."}
+          : {cls:"warn", html:"Approved, but the invite didn’t go out: "+esc(out.detail||"unknown error")+' — <a href="https://github.com/skhshths/ULTRA-experimental/settings/access" target="_blank" rel="noopener">invite them manually ↗</a>'};
+      }
+      renderRequests(); refreshOverviewOnly();
+      toast(act==="approve" ? "Approved @"+r.github : "Denied @"+r.github);
+    }).catch(function(err){ onAuthFail(err); card.querySelectorAll("button").forEach(function(x){ x.disabled=false; }); toast("Couldn’t save that"); });
+  });
+  $("rq-filters").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-f]"); if(!b) return;
+    rqFilter = b.getAttribute("data-f");
+    this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("on", x===b); });
+    renderRequests();
+  });
+  function refreshOverviewOnly(){ api("/api/ultra-admin/overview").then(function(o){ overview=o; renderOverview(); }).catch(function(){}); }
+
   function loadFeedback(){
     api("/api/ultra-admin/feedback").then(function(list){ feedback=list; renderFeedback(); }).catch(onAuthFail);
   }
